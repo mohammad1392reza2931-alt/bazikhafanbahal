@@ -1,0 +1,4974 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PIXEL MINI GAMES</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+  :root{
+    --bg-0:#0a0e1a;
+    --bg-1:#0f1424;
+    --panel:#131a2e;
+    --panel-2:#1a2340;
+    --neon-cyan:#3ff0ff;
+    --neon-pink:#ff3fb0;
+    --neon-green:#3dff8a;
+    --neon-yellow:#ffe23f;
+    --neon-purple:#a23fff;
+    --text-0:#eaf2ff;
+    --text-1:#8ea0c8;
+    --grid-line: rgba(63,240,255,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;
+    background:var(--bg-0);
+    color:var(--text-0);
+    font-family:'Trebuchet MS','Segoe UI',Tahoma,sans-serif;
+    overflow:hidden;
+    -webkit-user-select:none;user-select:none;
+    touch-action:none;
+  }
+  #app{
+    position:relative;width:100%;height:100%;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(63,240,255,0.08), transparent 55%),
+      radial-gradient(ellipse at 85% 100%, rgba(255,63,176,0.08), transparent 55%),
+      linear-gradient(180deg, var(--bg-0), var(--bg-1));
+    background-size: 200% 200%, 200% 200%, 100% 100%;
+  }
+  .bg-grid{
+    position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 34px 34px;
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 85%);
+  }
+  .screen{
+    position:absolute;inset:0;
+    display:none;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  .screen.active{display:flex;}
+
+  /* ---------- MENU ---------- */
+  #menuScreen{padding:18px 16px 10px;}
+  .menu-header{
+    text-align:center;
+    padding:6px 0 14px;
+    flex-shrink:0;
+  }
+  .menu-title{
+    font-family:'Courier New',monospace;
+    font-weight:900;
+    font-size:clamp(28px,7vw,46px);
+    letter-spacing:6px;
+    margin:0;
+    color:var(--neon-cyan);
+    text-shadow:
+      0 0 6px var(--neon-cyan),
+      0 0 18px rgba(63,240,255,0.6),
+      3px 3px 0 #0a3540,
+      6px 6px 0 rgba(0,0,0,0.4);
+    display:inline-block;
+  }
+  .menu-sub{
+    margin:8px 0 0;
+    color:var(--text-1);
+    font-size:13px;
+    letter-spacing:2px;
+  }
+  .menu-stats{
+    display:flex;justify-content:center;gap:18px;margin-top:10px;
+    font-size:12px;color:var(--neon-yellow);
+  }
+  .menu-stats span{
+    background:rgba(255,226,63,0.08);
+    border:1px solid rgba(255,226,63,0.35);
+    padding:4px 10px;border-radius:3px;
+  }
+  #gameGrid{
+    flex:1;overflow-y:auto;
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(148px,1fr));
+    gap:14px;
+    padding:6px 4px 90px;
+  }
+  #gameGrid::-webkit-scrollbar{width:6px;}
+  #gameGrid::-webkit-scrollbar-thumb{background:var(--neon-cyan);border-radius:4px;}
+
+  .game-card{
+    position:relative;
+    background:linear-gradient(160deg,var(--panel),var(--panel-2));
+    border:2px solid rgba(63,240,255,0.25);
+    border-radius:6px;
+    padding:12px 10px 10px;
+    display:flex;flex-direction:column;align-items:center;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    box-shadow:0 4px 0 rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.02);
+  }
+  .game-card:active{transform:scale(0.96);}
+  .game-card:hover, .game-card.touch-hover{
+    border-color:var(--card-glow,var(--neon-cyan));
+    box-shadow:
+      0 4px 0 rgba(0,0,0,0.4),
+      0 0 16px var(--card-glow,var(--neon-cyan)),
+      0 0 4px var(--card-glow,var(--neon-cyan)) inset;
+    transform:translateY(-3px);
+  }
+  .game-card canvas{
+    width:64px;height:64px;
+    image-rendering:pixelated;
+    margin-bottom:8px;
+    filter:drop-shadow(0 0 6px var(--card-glow,rgba(63,240,255,0.5)));
+  }
+  .game-card .g-name{
+    font-size:13px;font-weight:700;text-align:center;
+    color:var(--text-0);margin-bottom:4px;line-height:1.3;
+  }
+  .game-card .g-desc{
+    font-size:10.5px;color:var(--text-1);text-align:center;
+    line-height:1.4;min-height:28px;margin-bottom:8px;
+  }
+  .game-card .g-best{
+    font-size:10px;color:var(--neon-yellow);margin-bottom:8px;
+  }
+  .play-btn{
+    width:100%;
+    background:linear-gradient(180deg, var(--card-glow,var(--neon-cyan)), rgba(0,0,0,0.2));
+    color:#04121a;font-weight:900;letter-spacing:2px;
+    border:none;border-radius:4px;padding:7px 0;font-size:11px;
+    box-shadow:0 3px 0 rgba(0,0,0,0.5);
+    cursor:pointer;
+  }
+  .play-btn:active{transform:translateY(2px);box-shadow:none;}
+
+  /* ---------- GAME SCREEN ---------- */
+  #gameScreen{background:#05070d;}
+  #gameTopBar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:8px 10px;flex-shrink:0;
+    background:rgba(10,14,26,0.9);
+    border-bottom:2px solid rgba(63,240,255,0.2);
+    z-index:5;
+  }
+  #gameTopBar .g-title{
+    font-size:14px;font-weight:800;color:var(--neon-cyan);letter-spacing:1px;
+  }
+  .hud{
+    display:flex;gap:10px;font-size:12px;color:var(--text-0);
+  }
+  .hud b{color:var(--neon-yellow);}
+  .icon-btn{
+    background:var(--panel-2);border:1px solid rgba(63,240,255,0.35);
+    color:var(--text-0);border-radius:4px;padding:6px 10px;font-size:12px;
+    cursor:pointer;font-weight:700;
+  }
+  .icon-btn:active{transform:scale(0.94);}
+  #backBtn{color:var(--neon-pink);border-color:rgba(255,63,176,0.5);}
+  #gameStage{
+    position:relative;flex:1;display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(63,240,255,0.05), transparent 60%),
+      #05070d;
+  }
+  #gameCanvas{
+    background:#0b0f1e;
+    touch-action:none;
+    image-rendering:pixelated;
+    max-width:100%;max-height:100%;
+    box-shadow:0 0 40px rgba(63,240,255,0.08);
+  }
+  #touchControls{
+    position:absolute;bottom:14px;left:0;right:0;
+    display:none;justify-content:space-between;padding:0 16px;pointer-events:none;
+  }
+  #touchControls.active{display:flex;}
+  .vbtn{
+    pointer-events:all;
+    width:58px;height:58px;border-radius:50%;
+    background:rgba(63,240,255,0.12);
+    border:2px solid rgba(63,240,255,0.5);
+    color:var(--neon-cyan);font-size:22px;font-weight:900;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .vbtn:active{background:rgba(63,240,255,0.3);}
+  .vgroup{display:flex;gap:10px;pointer-events:none;}
+
+  /* overlay panels (pause / gameover) */
+  .overlay{
+    position:absolute;inset:0;background:rgba(3,5,12,0.86);
+    display:none;align-items:center;justify-content:center;z-index:10;
+  }
+  .overlay.active{display:flex;}
+  .overlay-panel{
+    background:linear-gradient(160deg,var(--panel),var(--panel-2));
+    border:2px solid var(--neon-cyan);
+    border-radius:8px;padding:26px 30px;text-align:center;min-width:240px;
+    box-shadow:0 0 30px rgba(63,240,255,0.35);
+  }
+  .overlay-panel h2{
+    margin:0 0 6px;color:var(--neon-cyan);letter-spacing:2px;font-size:22px;
+    text-shadow:0 0 10px rgba(63,240,255,0.6);
+  }
+  .overlay-panel.gameover h2{color:var(--neon-pink);text-shadow:0 0 10px rgba(255,63,176,0.6);}
+  .overlay-panel .score-line{margin:10px 0;font-size:14px;color:var(--text-0);}
+  .overlay-panel .score-line b{color:var(--neon-yellow);font-size:20px;}
+  .overlay-actions{display:flex;gap:10px;margin-top:16px;justify-content:center;flex-wrap:wrap;}
+  .overlay-actions button{
+    background:var(--neon-cyan);color:#04121a;border:none;border-radius:5px;
+    padding:9px 16px;font-weight:800;font-size:12px;letter-spacing:1px;cursor:pointer;
+    box-shadow:0 3px 0 rgba(0,0,0,0.4);
+  }
+  .overlay-actions button.secondary{
+    background:transparent;color:var(--text-0);border:1px solid var(--text-1);
+  }
+  .overlay-actions button:active{transform:translateY(2px);box-shadow:none;}
+
+  @media (max-width:480px){
+    .game-card canvas{width:52px;height:52px;}
+    .menu-title{letter-spacing:3px;}
+  }
+
+  /* ---------- SHOP ---------- */
+  .shop-btn{
+    background:linear-gradient(180deg,var(--neon-yellow),#8a6a10);
+    color:#241a00;border:none;border-radius:4px;padding:4px 12px;
+    font-weight:900;font-size:12px;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,0.4);
+  }
+  .shop-btn:active{transform:translateY(2px);box-shadow:none;}
+  .shop-coins{color:var(--neon-yellow);font-size:14px;font-weight:800;}
+  #shopScreen{padding:18px 16px 10px;}
+  #shopList{flex:1;overflow-y:auto;padding:6px 2px 90px;}
+  .shop-group{margin-bottom:18px;}
+  .shop-group-title{
+    display:flex;align-items:center;gap:8px;color:var(--text-0);
+    font-weight:800;font-size:13px;margin-bottom:8px;padding-bottom:6px;
+    border-bottom:1px solid rgba(63,240,255,0.2);
+  }
+  .shop-group-title canvas{width:26px;height:26px;image-rendering:pixelated;}
+  .shop-item{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:linear-gradient(160deg,var(--panel),var(--panel-2));
+    border:1px solid rgba(63,240,255,0.18);border-radius:6px;
+    padding:10px 12px;margin-bottom:8px;
+  }
+  .shop-item-info{flex:1;}
+  .shop-item-name{font-size:13px;font-weight:700;color:var(--text-0);margin-bottom:2px;}
+  .shop-item-desc{font-size:11px;color:var(--text-1);margin-bottom:4px;}
+  .shop-item-level{font-size:10px;color:var(--neon-green);}
+  .shop-level-picker{display:flex;gap:5px;margin-top:5px;}
+  .shop-level-pill{
+    min-width:22px;height:22px;padding:0 4px;border-radius:6px;border:1px solid rgba(255,255,255,0.18);
+    background:rgba(255,255,255,0.06);color:var(--text-1);font-size:11px;font-weight:700;cursor:pointer;
+  }
+  .shop-level-pill.active{background:var(--neon-green);color:#04220f;border-color:var(--neon-green);}
+  .shop-level-pill:active{transform:translateY(1px);}
+  .shop-buy-btn{
+    flex-shrink:0;background:var(--neon-yellow);color:#241a00;border:none;border-radius:5px;
+    padding:8px 12px;font-weight:800;font-size:11px;cursor:pointer;white-space:nowrap;
+    box-shadow:0 3px 0 rgba(0,0,0,0.4);
+  }
+  .shop-buy-btn:disabled{
+    background:#3a3a3a;color:#777;box-shadow:none;cursor:not-allowed;
+  }
+  .shop-buy-btn.owned{background:var(--neon-green);}
+  .shop-buy-btn:active:not(:disabled){transform:translateY(2px);box-shadow:none;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bg-grid"></div>
+
+  <!-- MENU SCREEN -->
+  <div id="menuScreen" class="screen active">
+    <div class="menu-header">
+      <h1 class="menu-title">PIXEL MINI GAMES</h1>
+      <p class="menu-sub">۱۴ بازی. یک هاب. صفر Loading واقعی.</p>
+      <div class="menu-stats">
+        <span id="statCoins">🪙 COINS: 0</span>
+        <span id="statPlays">PLAYS: 0</span>
+        <button id="shopBtn" class="shop-btn">🛒 SHOP</button>
+        <button id="netBtn" class="shop-btn" style="background:linear-gradient(180deg,#3ff0ff,#0a5a66);color:#04121a;">🌐 آنلاین</button>
+      </div>
+      <div id="netBadge" style="display:none;margin-top:8px;font-size:11px;color:#3dff8a;">🌐 به دوستت وصلی — بازی‌هایی که 👥 دارن رو می‌تونید آنلاین بازی کنید</div>
+    </div>
+    <div id="gameGrid"></div>
+  </div>
+
+  <!-- NET LOBBY OVERLAY -->
+  <div class="overlay" id="netOverlay">
+    <div class="overlay-panel" style="min-width:270px;">
+      <h2>🌐 بازی آنلاین با دوست</h2>
+      <div id="netStep1">
+        <button class="shop-btn" id="netHostBtn" style="width:100%;margin:6px 0;">➕ ساخت سرور</button>
+        <hr style="border-color:rgba(255,255,255,0.15);margin:12px 0;">
+        <input id="netCodeInput" placeholder="کد سرور دوستت" style="width:100%;padding:10px;border-radius:6px;border:none;text-align:center;font-size:14px;">
+        <button class="shop-btn" id="netJoinBtn" style="width:100%;margin:8px 0 0;">🔗 اتصال</button>
+        <p id="netStatus" style="font-size:12px;color:#8ea0c8;min-height:18px;margin-top:8px;"></p>
+      </div>
+      <div id="netStep2" style="display:none;">
+        <p style="font-size:12px;color:#8ea0c8;">کد سرور شما:</p>
+        <p><span id="netRoomCode" style="background:rgba(255,255,255,0.15);padding:6px 12px;border-radius:8px;letter-spacing:1px;user-select:all;font-size:16px;"></span></p>
+        <p style="font-size:11px;color:#8ea0c8;">این کد رو برای دوستت بفرست</p>
+        <p id="netStatus2" style="font-size:12px;color:#8ea0c8;min-height:18px;"></p>
+      </div>
+      <div class="overlay-actions">
+        <button class="secondary" id="netCloseBtn">بستن</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHOP SCREEN -->
+  <div id="shopScreen" class="screen">
+    <div class="menu-header" style="padding-bottom:6px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px;">
+        <button id="shopBackBtn" class="icon-btn">◀ منو</button>
+        <h1 class="menu-title" style="font-size:clamp(20px,6vw,30px);">SHOP</h1>
+        <span id="shopCoins" class="shop-coins">🪙 0</span>
+      </div>
+      <p class="menu-sub">با سکه‌هات وسایل بهتر برای هر بازی بخر</p>
+    </div>
+    <div id="shopList"></div>
+  </div>
+
+  <!-- GAME SCREEN -->
+  <div id="gameScreen" class="screen">
+    <div id="gameTopBar">
+      <button id="backBtn" class="icon-btn">◀ منو</button>
+      <div class="g-title" id="gTitleLabel">GAME</div>
+      <div class="hud">
+        <div>SCORE: <b id="hudScore">0</b></div>
+        <div>BEST: <b id="hudBest">0</b></div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button id="soundBtn" class="icon-btn">🔊</button>
+        <button id="pauseBtn" class="icon-btn">⏸</button>
+      </div>
+    </div>
+    <div id="gameStage">
+      <canvas id="gameCanvas" width="480" height="640"></canvas>
+      <div id="touchControls">
+        <div class="vgroup">
+          <div class="vbtn" id="vbtnLeft">◀</div>
+          <div class="vbtn" id="vbtnRight">▶</div>
+        </div>
+        <div class="vgroup">
+          <div class="vbtn" id="vbtnB">B</div>
+          <div class="vbtn" id="vbtnA">A</div>
+        </div>
+      </div>
+
+      <div class="overlay" id="pauseOverlay">
+        <div class="overlay-panel">
+          <h2>PAUSED</h2>
+          <div class="overlay-actions">
+            <button id="resumeBtn">ادامه</button>
+            <button class="secondary" id="pauseMenuBtn">بازگشت به منو</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overlay" id="gameOverOverlay">
+        <div class="overlay-panel gameover">
+          <h2 id="gameOverTitle">GAME OVER</h2>
+          <div class="score-line">امتیاز: <b id="finalScore">0</b></div>
+          <div class="score-line" id="finalBestLine">بهترین امتیاز: <b id="finalBest">0</b></div>
+          <div class="score-line">🪙 سکه بدست‌آمده: <b id="finalCoins">0</b></div>
+          <div class="overlay-actions">
+            <button id="retryBtn">تلاش مجدد</button>
+            <button class="secondary" id="gameOverMenuBtn">منوی اصلی</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   PIXEL MINI GAMES HUB - Core Engine
+   ========================================================= */
+(function(){
+"use strict";
+
+/* ---------------- Storage ---------------- */
+const STORAGE_KEY = "pixelHub_save_v1";
+function loadSave(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return { best:{}, coins:0, plays:0, soundOn:true };
+}
+function saveSave(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(SAVE)); }catch(e){}
+}
+const SAVE = loadSave();
+if(!SAVE.best) SAVE.best = {};
+if(typeof SAVE.coins !== "number") SAVE.coins = 0;
+if(typeof SAVE.plays !== "number") SAVE.plays = 0;
+if(typeof SAVE.soundOn !== "boolean") SAVE.soundOn = true;
+if(!SAVE.upgrades) SAVE.upgrades = {};
+if(!SAVE.upgradesMax) SAVE.upgradesMax = {};
+// migrate old saves: whatever level was already active is at least the highest owned
+Object.keys(SAVE.upgrades).forEach(k=>{
+  if(!SAVE.upgradesMax[k] || SAVE.upgradesMax[k] < SAVE.upgrades[k]) SAVE.upgradesMax[k] = SAVE.upgrades[k];
+});
+
+function getBest(id){ return SAVE.best[id] || 0; }
+function setBestIfHigher(id, score){
+  score = Math.floor(score);
+  if(score > getBest(id)){ SAVE.best[id] = score; saveSave(); return true; }
+  saveSave();
+  return false;
+}
+function addCoins(n){ SAVE.coins = Math.max(0, SAVE.coins + n); saveSave(); updateMenuStats(); }
+function getUpgradeLevel(key){ return SAVE.upgrades[key] || 0; }
+function getUpgradeMaxOwned(key){ return SAVE.upgradesMax[key] || 0; }
+function setUpgradeLevel(key, targetLevel){
+  const maxOwned = getUpgradeMaxOwned(key);
+  if(targetLevel < 0 || targetLevel > maxOwned) return false;
+  SAVE.upgrades[key] = targetLevel;
+  saveSave();
+  return true;
+}
+
+/* ---------------- Shop / Upgrades ---------------- */
+/* Each upgrade: id, gameId (matches game def id), name, desc(level)=>text,
+   cost(level)=>coins for buying that level, maxLevel, effectKey (key in SAVE.upgrades) */
+const UPGRADES = [
+  { id:"pickaxe", gameId:"pixel-miner", effectKey:"pickaxeLevel", maxLevel:2,
+    name:"کلنگ قوی‌تر", cost:[60,140],
+    desc:(lv)=> lv===0?"کلنگ چوبی (پیش‌فرض) — هر بلوک با ضربه معمولی می‌شکنه.":
+                lv===1?"کلنگ آهنی — بلوک‌ها ۱ ضربه سریع‌تر می‌شکنن.":
+                "کلنگ الماس — بلوک‌ها خیلی سریع‌تر می‌شکنن و انرژی کمتری مصرف میشه." },
+  { id:"battery", gameId:"pixel-miner", effectKey:"batteryLevel", maxLevel:2,
+    name:"باتری اضافه", cost:[40,100],
+    desc:(lv)=> "انرژی شروع بازی: "+(100+lv*25)+(lv<2?" (سطح بعد: "+(100+(lv+1)*25)+")":" (حداکثر)") },
+  { id:"blade", gameId:"fruit-slash", effectKey:"bladeLevel", maxLevel:2,
+    name:"چاقوی تیزتر", cost:[40,100],
+    desc:(lv)=> "شعاع برش بزرگ‌تر — سطح فعلی: "+lv+"/2" },
+  { id:"basket", gameId:"coin-catcher", effectKey:"basketLevel", maxLevel:2,
+    name:"سبد بزرگ‌تر", cost:[40,100],
+    desc:(lv)=> "عرض سبد بیشتر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"paddle", gameId:"block-breaker", effectKey:"paddleLevel", maxLevel:2,
+    name:"پدال بزرگ‌تر", cost:[40,100],
+    desc:(lv)=> "عرض پدال بیشتر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"boots-creeper", gameId:"creeper-dodge", effectKey:"bootsLevelCreeper", maxLevel:2,
+    name:"کفش سرعتی", cost:[40,100],
+    desc:(lv)=> "سرعت حرکت بازیکن بیشتر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"boots-tnt", gameId:"tnt-escape", effectKey:"bootsLevelTnt", maxLevel:2,
+    name:"کفش سرعتی", cost:[40,100],
+    desc:(lv)=> "سرعت حرکت بازیکن بیشتر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"turbo", gameId:"zombie-wave", effectKey:"turboLevel", maxLevel:2,
+    name:"تفنگ سریع‌تر", cost:[50,120],
+    desc:(lv)=> "سرعت شلیک بیشتر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"quiver", gameId:"skeleton-archery", effectKey:"quiverLevel", maxLevel:2,
+    name:"ترکش بزرگ‌تر", cost:[30,80],
+    desc:(lv)=> "تعداد تیر شروع: "+(15+lv*5) },
+  { id:"jumpboots", gameId:"block-runner", effectKey:"jumpBootsLevel", maxLevel:1,
+    name:"چکمه پرش دوگانه", cost:[70],
+    desc:(lv)=> lv>=1 ? "پرش دوگانه فعاله!" : "امکان پرش دوم در هوا رو باز می‌کنه." },
+  { id:"grip", gameId:"lava-jump", effectKey:"gripLevel", maxLevel:2,
+    name:"چکمه ضدلغزش", cost:[40,100],
+    desc:(lv)=> "زمان بیشتر روی بلوک قبل از فرو رفتن — سطح فعلی: "+lv+"/2" },
+  { id:"lens", gameId:"diamond-rush", effectKey:"lensLevel", maxLevel:2,
+    name:"ذره‌بین", cost:[30,80],
+    desc:(lv)=> "شعاع لمس الماس‌ها بزرگ‌تر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"shield", gameId:"blocky-flappy", effectKey:"shieldLevel", maxLevel:1,
+    name:"سپر محافظ", cost:[60],
+    desc:(lv)=> lv>=1 ? "یک بار برخورد رو در هر بازی خنثی می‌کنه!" : "یک بار برخورد رایگان در هر بازی." },
+  { id:"hint", gameId:"pixel-memory", effectKey:"hintLevel", maxLevel:2,
+    name:"چشم تیزبین", cost:[35,90],
+    desc:(lv)=> "کارت‌ها در شروع بازی برای "+(1+lv)+" ثانیه بیشتر نشون داده میشن." },
+  { id:"small-car", gameId:"car-race", effectKey:"carSizeLevel", maxLevel:2,
+    name:"ماشین کوچیک‌تر", cost:[50,120],
+    desc:(lv)=> "ماشینت کوچیک‌تر میشه و راحت‌تر از موانع رد میشی — سطح فعلی: "+lv+"/2" },
+  { id:"turbo-engine", gameId:"car-race", effectKey:"raceTurboLevel", maxLevel:2,
+    name:"موتور قوی‌تر", cost:[50,120],
+    desc:(lv)=> "سرعت پیشرفتت توی مسیر بیشتر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"running-shoes", gameId:"cooking-duel", effectKey:"cookSpeedLevel", maxLevel:2,
+    name:"کفش دوندگی", cost:[40,100],
+    desc:(lv)=> "سرعت راه رفتنت توی آشپزخونه بیشتر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"close-ingredients", gameId:"cooking-duel", effectKey:"cookProximityLevel", maxLevel:2,
+    name:"شانس مواد نزدیک‌تر", cost:[40,100],
+    desc:(lv)=> "مواد اولیه‌ات با احتمال بیشتری نزدیک‌تر پخش میشن — سطح فعلی: "+lv+"/2" },
+  { id:"hop-boots", gameId:"crossy-hopper", effectKey:"hopSpeedLevel", maxLevel:2,
+    name:"چکمه چابک", cost:[40,100],
+    desc:(lv)=> "سرعت پرش (فقط تک‌نفره و مقابل ربات) بیشتر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"hop-shield", gameId:"crossy-hopper", effectKey:"hopShieldLevel", maxLevel:1,
+    name:"چتر نجات", cost:[70],
+    desc:(lv)=> lv>=1 ? "یک بار برخورد/غرق‌شدن رو خنثی می‌کنه (فقط تک‌نفره و مقابل ربات)!" : "یک بار نجات رایگان در تک‌نفره یا مقابل ربات." },
+  { id:"dash-shoes", gameId:"temple-dash", effectKey:"dashSpeedLevel", maxLevel:2,
+    name:"کفش دوی سریع", cost:[45,110],
+    desc:(lv)=> "سرعت دویدنت (فقط تک‌نفره و مقابل ربات) بیشتر میشه — سطح فعلی: "+lv+"/2" },
+  { id:"dash-jump", gameId:"temple-dash", effectKey:"dashJumpLevel", maxLevel:2,
+    name:"پرش فنری", cost:[45,110],
+    desc:(lv)=> "پرشت (فقط تک‌نفره و مقابل ربات) بلندتر میشه و رد شدن از مانع راحت‌تره — سطح فعلی: "+lv+"/2" }
+];
+
+function purchaseUpgrade(up){
+  const maxOwned = getUpgradeMaxOwned(up.effectKey);
+  if(maxOwned >= up.maxLevel) return false;
+  const cost = up.cost[maxOwned];
+  if(SAVE.coins < cost) return false;
+  SAVE.coins -= cost;
+  SAVE.upgradesMax[up.effectKey] = maxOwned+1;
+  SAVE.upgrades[up.effectKey] = maxOwned+1; // buying a new level equips it right away
+  saveSave();
+  return true;
+}
+
+/* ---------------- Audio (WebAudio, no assets) ---------------- */
+const Audio_ = (function(){
+  let ctx = null;
+  function ensure(){
+    if(!ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      ctx = new AC();
+    }
+    if(ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+  function tone(freq, dur, type, vol, opts){
+    if(!SAVE.soundOn) return;
+    opts = opts || {};
+    const c = ensure();
+    const t0 = c.currentTime;
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = type || "square";
+    osc.frequency.setValueAtTime(freq, t0);
+    if(opts.slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20,opts.slide), t0+dur);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(vol||0.2, t0+0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.connect(gain).connect(c.destination);
+    osc.start(t0);
+    osc.stop(t0+dur+0.02);
+  }
+  return {
+    click(){ tone(520,0.06,"square",0.15); },
+    hover(){ tone(720,0.04,"sine",0.06); },
+    collect(){ tone(880,0.09,"square",0.15,{slide:1400}); },
+    hit(){ tone(140,0.15,"sawtooth",0.2,{slide:60}); },
+    jump(){ tone(420,0.1,"triangle",0.18,{slide:700}); },
+    gameover(){ tone(220,0.35,"sawtooth",0.22,{slide:60}); },
+    win(){
+      tone(660,0.1,"square",0.18); 
+      setTimeout(()=>tone(880,0.12,"square",0.18),110);
+      setTimeout(()=>tone(1180,0.18,"square",0.2),220);
+    },
+    toggle(){ SAVE.soundOn = !SAVE.soundOn; saveSave(); return SAVE.soundOn; }
+  };
+})();
+
+/* ---------------- Small utils ---------------- */
+function rand(a,b){ return a + Math.random()*(b-a); }
+function randInt(a,b){ return Math.floor(rand(a,b+1)); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function dist(x1,y1,x2,y2){ return Math.hypot(x2-x1,y2-y1); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function choose(arr){ return arr[randInt(0,arr.length-1)]; }
+
+/* pixel-block drawing helper: draws a grid-defined sprite
+   grid: array of strings, each char maps to a color in palette (index) or '.' transparent */
+function drawSprite(ctx, grid, palette, x, y, cell){
+  for(let r=0;r<grid.length;r++){
+    const row = grid[r];
+    for(let c=0;c<row.length;c++){
+      const ch = row[c];
+      if(ch === "." || ch === " ") continue;
+      ctx.fillStyle = palette[ch] || "#fff";
+      ctx.fillRect(x + c*cell, y + r*cell, cell, cell);
+    }
+  }
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+/* screen shake state used by games */
+const Shake = { t:0, mag:0 };
+function triggerShake(mag, dur){ Shake.mag = mag; Shake.t = dur; }
+function applyShake(ctx, dt){
+  if(Shake.t > 0){
+    Shake.t -= dt;
+    const m = Shake.mag * (Shake.t>0?1:0);
+    ctx.translate(rand(-m,m), rand(-m,m));
+  }
+}
+
+/* simple particle system reusable across games */
+function makeParticleSystem(){
+  let list = [];
+  return {
+    burst(x,y,color,count,opts){
+      opts = opts || {};
+      for(let i=0;i<count;i++){
+        const ang = rand(0,Math.PI*2);
+        const spd = rand(opts.minSpd||40, opts.maxSpd||220);
+        list.push({
+          x,y,vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd - (opts.up||0),
+          life: rand(opts.minLife||0.3, opts.maxLife||0.7), age:0,
+          color: color || "#fff", size: rand(opts.minSize||2, opts.maxSize||4),
+          gravity: opts.gravity!=null?opts.gravity:300
+        });
+      }
+    },
+    update(dt){
+      for(let i=list.length-1;i>=0;i--){
+        const p = list[i];
+        p.age += dt;
+        if(p.age >= p.life){ list.splice(i,1); continue; }
+        p.vy += p.gravity*dt;
+        p.x += p.vx*dt; p.y += p.vy*dt;
+      }
+    },
+    draw(ctx){
+      for(const p of list){
+        const a = 1 - p.age/p.life;
+        ctx.globalAlpha = Math.max(0,a);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x-p.size/2, p.y-p.size/2, p.size, p.size);
+      }
+      ctx.globalAlpha = 1;
+    },
+    clear(){ list.length = 0; },
+    get count(){ return list.length; }
+  };
+}
+
+/* ---------------- Input manager ---------------- */
+const Input = {
+  keys:{},
+  pointer:{ x:0, y:0, down:false, startX:0, startY:0, dx:0, dy:0 },
+  virtual:{ left:false, right:false, a:false, b:false },
+  _handlers:[],
+  reset(){
+    this.keys = {}; this.pointer = { x:0,y:0,down:false,startX:0,startY:0,dx:0,dy:0 };
+    this.virtual = { left:false,right:false,a:false,b:false };
+  }
+};
+
+/* ---------------- NET: online 2-player connection (PeerJS) ---------------- */
+const NET = {
+  peer: null, conn: null, isHost: false, connected: false,
+  _handler: null,
+  setHandler(fn){ this._handler = fn; },
+  clearHandler(){ this._handler = null; },
+  send(obj){ if(this.conn && this.connected){ try{ this.conn.send(obj); }catch(e){} } },
+  onData(data){
+    if(data.type === "net:launch"){
+      const def = GAMES.find(g=>g.id===data.gameId);
+      if(def) startGame(def);
+      return;
+    }
+    if(data.type === "net:backToMenu"){ backToMenu(); return; }
+    if(this._handler) this._handler(data);
+  }
+};
+function netSetStatus(el, msg){ const e=document.getElementById(el); if(e) e.textContent = msg; }
+function netOnConnected(){
+  NET.connected = true;
+  document.getElementById("netOverlay").classList.remove("active");
+  document.getElementById("netBadge").style.display = "block";
+  document.getElementById("netBtn").textContent = "🌐 وصل ✅";
+  NET.conn.on("data", d=>NET.onData(d));
+  NET.conn.on("close", ()=>{
+    NET.connected = false;
+    document.getElementById("netBadge").style.display = "none";
+    document.getElementById("netBtn").textContent = "🌐 آنلاین";
+    alert("ارتباط با دوستت قطع شد ❌");
+  });
+}
+document.getElementById("netBtn").addEventListener("click", ()=>{
+  document.getElementById("netOverlay").classList.add("active");
+});
+document.getElementById("netCloseBtn").addEventListener("click", ()=>{
+  document.getElementById("netOverlay").classList.remove("active");
+});
+document.getElementById("netHostBtn").addEventListener("click", ()=>{
+  document.getElementById("netHostBtn").disabled = true;
+  document.getElementById("netJoinBtn").disabled = true;
+  netSetStatus("netStatus", "در حال ساخت سرور...");
+  NET.peer = new Peer();
+  NET.peer.on("open", id=>{
+    document.getElementById("netRoomCode").textContent = id;
+    document.getElementById("netStep1").style.display = "none";
+    document.getElementById("netStep2").style.display = "block";
+    netSetStatus("netStatus2", "منتظر اتصال دوستت...");
+  });
+  NET.peer.on("connection", c=>{
+    NET.conn = c; NET.isHost = true;
+    c.on("open", netOnConnected);
+  });
+  NET.peer.on("error", err=> netSetStatus("netStatus", "خطا: "+err.type));
+});
+document.getElementById("netJoinBtn").addEventListener("click", ()=>{
+  const code = document.getElementById("netCodeInput").value.trim();
+  if(!code) return;
+  document.getElementById("netHostBtn").disabled = true;
+  document.getElementById("netJoinBtn").disabled = true;
+  netSetStatus("netStatus", "در حال اتصال...");
+  NET.peer = new Peer();
+  NET.peer.on("open", ()=>{
+    NET.conn = NET.peer.connect(code);
+    NET.isHost = false;
+    NET.conn.on("open", netOnConnected);
+    NET.conn.on("error", ()=> netSetStatus("netStatus", "اتصال ناموفق بود."));
+  });
+  NET.peer.on("error", ()=> netSetStatus("netStatus", "کد اشتباهه یا مشکل اینترنته."));
+});
+
+/* ---------------- Canvas / responsive sizing ---------------- */
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const stage = document.getElementById("gameStage");
+const BASE_W = 480, BASE_H = 640;
+canvas.width = BASE_W; canvas.height = BASE_H;
+
+function fitCanvas(){
+  const availW = stage.clientWidth - 10;
+  const availH = stage.clientHeight - 10;
+  const scale = Math.min(availW/BASE_W, availH/BASE_H);
+  canvas.style.width = (BASE_W*scale)+"px";
+  canvas.style.height = (BASE_H*scale)+"px";
+}
+window.addEventListener("resize", fitCanvas);
+
+function getCanvasPos(evt){
+  const rect = canvas.getBoundingClientRect();
+  const cx = (evt.touches ? evt.touches[0].clientX : evt.clientX);
+  const cy = (evt.touches ? evt.touches[0].clientY : evt.clientY);
+  const scaleX = BASE_W/rect.width, scaleY = BASE_H/rect.height;
+  return { x:(cx-rect.left)*scaleX, y:(cy-rect.top)*scaleY };
+}
+
+/* ---------------- Game registry (filled by game modules below) ---------------- */
+const GAMES = [];
+function registerGame(def){ GAMES.push(def); }
+
+/* ---------------- State / screen management ---------------- */
+const menuScreen = document.getElementById("menuScreen");
+const gameScreen = document.getElementById("gameScreen");
+const gTitleLabel = document.getElementById("gTitleLabel");
+const hudScore = document.getElementById("hudScore");
+const hudBest = document.getElementById("hudBest");
+const pauseOverlay = document.getElementById("pauseOverlay");
+const gameOverOverlay = document.getElementById("gameOverOverlay");
+const touchControls = document.getElementById("touchControls");
+
+let currentGame = null;   // active game def
+let currentInstance = null; // active game instance (returned by def.init)
+let rafId = null;
+let lastTime = 0;
+let paused = false;
+let currentScore = 0;
+let gameOverShown = false;
+
+function showScreen(el){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  el.classList.add("active");
+}
+
+function setScore(v){
+  currentScore = v;
+  hudScore.textContent = Math.floor(v);
+}
+function addScore(v){ setScore(currentScore+v); }
+
+function endGame(opts){
+  opts = opts || {};
+  if(gameOverShown) return;
+  gameOverShown = true;
+  Audio_.gameover();
+  const isNewBest = setBestIfHigher(currentGame.id, currentScore);
+  document.getElementById("finalScore").textContent = Math.floor(currentScore);
+  document.getElementById("finalBest").textContent = getBest(currentGame.id);
+  document.getElementById("gameOverTitle").textContent = opts.win ? "YOU WIN!" : "GAME OVER";
+  if(opts.win) Audio_.win();
+  const coinsGained = Math.max(1, Math.floor(currentScore/10));
+  addCoins(coinsGained);
+  document.getElementById("finalCoins").textContent = coinsGained;
+  gameOverOverlay.classList.add("active");
+}
+
+function stopLoop(){
+  if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+}
+
+function cleanupGame(){
+  stopLoop();
+  if(currentInstance && typeof currentInstance.destroy === "function"){
+    try{ currentInstance.destroy(); }catch(e){ console.error(e); }
+  }
+  currentInstance = null;
+  currentGame = null;
+  NET.clearHandler();
+  Input.reset();
+  pauseOverlay.classList.remove("active");
+  gameOverOverlay.classList.remove("active");
+  paused = false;
+}
+
+function backToMenu(){
+  cleanupGame();
+  showScreen(menuScreen);
+  renderMenu();
+}
+
+function loopStep(ts){
+  if(!currentInstance) return;
+  if(!lastTime) lastTime = ts;
+  let dt = (ts - lastTime)/1000;
+  lastTime = ts;
+  dt = Math.min(dt, 0.05); // clamp for tab-switch spikes
+  if(!paused && !gameOverShown){
+    try{
+      currentInstance.update(dt);
+      ctx.save();
+      ctx.clearRect(0,0,BASE_W,BASE_H);
+      applyShake(ctx, dt);
+      currentInstance.draw(ctx);
+      ctx.restore();
+    }catch(e){
+      console.error("Game error:", e);
+    }
+  }
+  rafId = requestAnimationFrame(loopStep);
+}
+
+function startGame(def){
+  cleanupGame();
+  currentGame = def;
+  gameOverShown = false;
+  paused = false;
+  setScore(0);
+  gTitleLabel.textContent = def.name;
+  hudBest.textContent = getBest(def.id);
+  touchControls.classList.toggle("active", !!def.useVirtualButtons);
+  showScreen(gameScreen);
+  fitCanvas();
+  SAVE.plays++; saveSave();
+
+  const api = {
+    canvas, ctx, W:BASE_W, H:BASE_H,
+    input: Input,
+    sound: Audio_,
+    rand, randInt, clamp, dist, lerp, choose,
+    drawSprite, roundRect, triggerShake,
+    makeParticleSystem,
+    setScore, addScore,
+    getScore: ()=>currentScore,
+    endGame,
+    getCanvasPos,
+    net: NET
+  };
+  currentInstance = def.init(api);
+  lastTime = 0;
+  rafId = requestAnimationFrame(loopStep);
+}
+
+function restartGame(){
+  const def = currentGame;
+  gameOverOverlay.classList.remove("active");
+  startGame(def);
+}
+
+/* ---------------- Global input wiring (delegates to Input object) ---------------- */
+window.addEventListener("keydown", (e)=>{ Input.keys[e.code] = true; });
+window.addEventListener("keyup", (e)=>{ Input.keys[e.code] = false; });
+
+function pointerDown(e){
+  e.preventDefault();
+  const p = getCanvasPos(e);
+  Input.pointer.down = true;
+  Input.pointer.x = p.x; Input.pointer.y = p.y;
+  Input.pointer.startX = p.x; Input.pointer.startY = p.y;
+  Input.pointer.dx = 0; Input.pointer.dy = 0;
+  Input.pointer.justDown = true;
+}
+function pointerMove(e){
+  if(!Input.pointer.down && e.type.indexOf("touch")===-1) { /* still track for hover-based games */ }
+  const p = getCanvasPos(e);
+  Input.pointer.dx = p.x - Input.pointer.x;
+  Input.pointer.dy = p.y - Input.pointer.y;
+  Input.pointer.x = p.x; Input.pointer.y = p.y;
+  Input.pointer.moved = true;
+}
+function pointerUp(e){
+  Input.pointer.down = false;
+  Input.pointer.justUp = true;
+}
+canvas.addEventListener("mousedown", pointerDown);
+canvas.addEventListener("mousemove", pointerMove);
+window.addEventListener("mouseup", pointerUp);
+canvas.addEventListener("touchstart", pointerDown, {passive:false});
+canvas.addEventListener("touchmove", pointerMove, {passive:false});
+canvas.addEventListener("touchend", pointerUp, {passive:false});
+
+function bindVirtual(id, key){
+  const el = document.getElementById(id);
+  const on = (e)=>{ e.preventDefault(); Input.virtual[key]=true; };
+  const off = (e)=>{ e.preventDefault(); Input.virtual[key]=false; };
+  el.addEventListener("touchstart", on, {passive:false});
+  el.addEventListener("touchend", off, {passive:false});
+  el.addEventListener("mousedown", on);
+  el.addEventListener("mouseup", off);
+  el.addEventListener("mouseleave", off);
+}
+bindVirtual("vbtnLeft","left");
+bindVirtual("vbtnRight","right");
+bindVirtual("vbtnA","a");
+bindVirtual("vbtnB","b");
+
+/* ---------------- Top bar buttons ---------------- */
+function backToMenuUser(){ if(NET.connected) NET.send({type:"net:backToMenu"}); backToMenu(); }
+document.getElementById("backBtn").addEventListener("click", ()=>{ Audio_.click(); backToMenuUser(); });
+document.getElementById("pauseBtn").addEventListener("click", ()=>{
+  Audio_.click();
+  if(gameOverShown) return;
+  paused = true; pauseOverlay.classList.add("active");
+});
+document.getElementById("resumeBtn").addEventListener("click", ()=>{
+  Audio_.click(); paused = false; pauseOverlay.classList.remove("active"); lastTime = 0;
+});
+document.getElementById("pauseMenuBtn").addEventListener("click", ()=>{ Audio_.click(); backToMenuUser(); });
+document.getElementById("retryBtn").addEventListener("click", ()=>{ Audio_.click(); restartGame(); });
+document.getElementById("gameOverMenuBtn").addEventListener("click", ()=>{ Audio_.click(); backToMenuUser(); });
+document.getElementById("soundBtn").addEventListener("click", (e)=>{
+  const on = Audio_.toggle();
+  e.target.textContent = on ? "🔊" : "🔇";
+  if(on) Audio_.click();
+});
+
+/* ---------------- Menu rendering ---------------- */
+const gameGrid = document.getElementById("gameGrid");
+const shopScreen = document.getElementById("shopScreen");
+const shopList = document.getElementById("shopList");
+function updateMenuStats(){
+  document.getElementById("statCoins").textContent = "🪙 COINS: "+SAVE.coins;
+  document.getElementById("statPlays").textContent = "PLAYS: "+SAVE.plays;
+  const sc = document.getElementById("shopCoins");
+  if(sc) sc.textContent = "🪙 "+SAVE.coins;
+}
+document.getElementById("shopBtn").addEventListener("click", ()=>{
+  Audio_.click(); showScreen(shopScreen); renderShop();
+});
+document.getElementById("shopBackBtn").addEventListener("click", ()=>{
+  Audio_.click(); showScreen(menuScreen); renderMenu();
+});
+function renderShop(){
+  shopList.innerHTML = "";
+  updateMenuStats();
+  const byGame = {};
+  UPGRADES.forEach(up=>{ (byGame[up.gameId] = byGame[up.gameId]||[]).push(up); });
+  Object.keys(byGame).forEach(gameId=>{
+    const def = GAMES.find(g=>g.id===gameId);
+    if(!def) return;
+    const group = document.createElement("div");
+    group.className = "shop-group";
+    const title = document.createElement("div");
+    title.className = "shop-group-title";
+    const cv = document.createElement("canvas"); cv.width=32; cv.height=32;
+    const cctx = cv.getContext("2d"); cctx.imageSmoothingEnabled=false;
+    def.drawIcon(cctx);
+    const span = document.createElement("span"); span.textContent = def.name;
+    title.appendChild(cv); title.appendChild(span);
+    group.appendChild(title);
+
+    byGame[gameId].forEach(up=>{
+      const lv = getUpgradeLevel(up.effectKey);
+      const maxOwned = getUpgradeMaxOwned(up.effectKey);
+      const maxed = maxOwned >= up.maxLevel;
+      const item = document.createElement("div");
+      item.className = "shop-item";
+      const info = document.createElement("div");
+      info.className = "shop-item-info";
+      const nameEl = document.createElement("div");
+      nameEl.className = "shop-item-name"; nameEl.textContent = up.name;
+      const descEl = document.createElement("div");
+      descEl.className = "shop-item-desc"; descEl.textContent = up.desc(lv);
+      const lvEl = document.createElement("div");
+      lvEl.className = "shop-item-level"; lvEl.textContent = "سطح: "+lv+"/"+up.maxLevel;
+      info.appendChild(nameEl); info.appendChild(descEl); info.appendChild(lvEl);
+
+      if(maxOwned > 0){
+        const picker = document.createElement("div");
+        picker.className = "shop-level-picker";
+        for(let l=0; l<=maxOwned; l++){
+          const pill = document.createElement("button");
+          pill.className = "shop-level-pill" + (l===lv ? " active" : "");
+          pill.textContent = String(l);
+          pill.addEventListener("click", ()=>{
+            if(l===lv) return;
+            if(setUpgradeLevel(up.effectKey, l)){
+              Audio_.click();
+              renderShop();
+            }
+          });
+          picker.appendChild(pill);
+        }
+        info.appendChild(picker);
+      }
+
+      const btn = document.createElement("button");
+      btn.className = "shop-buy-btn";
+      if(maxed){
+        btn.textContent = "✓ حداکثر"; btn.disabled = true; btn.classList.add("owned");
+      } else {
+        const cost = up.cost[maxOwned];
+        btn.textContent = "🪙 "+cost;
+        btn.disabled = SAVE.coins < cost;
+        btn.addEventListener("click", ()=>{
+          if(purchaseUpgrade(up)){
+            Audio_.collect();
+            renderShop();
+          } else {
+            Audio_.hit();
+          }
+        });
+      }
+      item.appendChild(info); item.appendChild(btn);
+      group.appendChild(item);
+    });
+    shopList.appendChild(group);
+  });
+}
+function renderMenu(){
+  gameGrid.innerHTML = "";
+  GAMES.forEach((def)=>{
+    const card = document.createElement("div");
+    card.className = "game-card";
+    card.style.setProperty("--card-glow", def.color || "#3ff0ff");
+    const cv = document.createElement("canvas");
+    cv.width = 32; cv.height = 32;
+    const cctx = cv.getContext("2d");
+    cctx.imageSmoothingEnabled = false;
+    def.drawIcon(cctx);
+    const nameEl = document.createElement("div");
+    nameEl.className = "g-name"; nameEl.textContent = def.name;
+    const descEl = document.createElement("div");
+    descEl.className = "g-desc"; descEl.textContent = def.desc;
+    const bestEl = document.createElement("div");
+    bestEl.className = "g-best"; bestEl.textContent = "BEST: "+getBest(def.id);
+    const btn = document.createElement("button");
+    btn.className = "play-btn"; btn.textContent = "▶ PLAY";
+    btn.style.background = "linear-gradient(180deg,"+(def.color||"#3ff0ff")+", rgba(0,0,0,0.25))";
+    card.appendChild(cv); card.appendChild(nameEl); card.appendChild(descEl);
+    card.appendChild(bestEl); card.appendChild(btn);
+    const launch = ()=>{
+      Audio_.click();
+      if(NET.connected) NET.send({type:"net:launch", gameId:def.id});
+      startGame(def);
+    };
+    btn.addEventListener("click",(e)=>{ e.stopPropagation(); launch(); });
+    card.addEventListener("click", launch);
+    card.addEventListener("mouseenter", ()=>Audio_.hover());
+    gameGrid.appendChild(card);
+  });
+  updateMenuStats();
+}
+
+/* expose registerGame for game modules loaded below */
+window.__registerGame = registerGame;
+window.__hubReady = function(){
+  renderMenu();
+  fitCanvas();
+};
+
+
+/* =========================================================
+   GAME 1: PIXEL FRUIT SLASH
+   ========================================================= */
+(function(){
+  const PAL = {a:"#ff5252", b:"#7a2020", c:"#3aff6e", d:"#1a7a34", e:"#ffd23a", f:"#7a5a10",
+               g:"#ff8a3a", h:"#7a3a10", i:"#333", j:"#ff0"};
+  function drawIcon(cctx){
+    const grid = [
+      "..aaaa..",
+      ".aaaaaa.",
+      "aaaaaaaa",
+      "aaaaaaaa",
+      ".bbbbbb.",
+      "..cccc..",
+      "...cc...",
+      "........"
+    ];
+    drawSpriteScaled(cctx, grid, PAL, 4);
+  }
+  function drawSpriteScaled(cctx, grid, palette, cell){
+    for(let r=0;r<grid.length;r++){
+      for(let c=0;c<grid[r].length;c++){
+        const ch = grid[r][c];
+        if(ch==="."||ch===" ") continue;
+        cctx.fillStyle = palette[ch] || "#fff";
+        cctx.fillRect(c*cell, r*cell, cell, cell);
+      }
+    }
+  }
+
+  const FRUIT_TYPES = [
+    { color:"#ff5252", dark:"#7a2020", r:26, pts:10 },
+    { color:"#ffd23a", dark:"#7a5a10", r:24, pts:12 },
+    { color:"#3aff6e", dark:"#1a7a34", r:22, pts:15 },
+    { color:"#ff8a3a", dark:"#7a3a10", r:25, pts:10 },
+    { color:"#c04aff", dark:"#5a1a7a", r:23, pts:18 }
+  ];
+
+  function init(api){
+    const { W,H,input,sound,rand,randInt,clamp,dist,triggerShake,makeParticleSystem,addScore,endGame } = api;
+    const bladeBonus = getUpgradeLevel("bladeLevel")*6;
+    let objects = []; // fruits & bombs
+    let trail = [];
+    let combo = 0, comboTimer = 0;
+    let spawnTimer = 0, spawnInterval = 1.1;
+    let lives = 3;
+    let elapsed = 0;
+    let over = false;
+    const particles = makeParticleSystem();
+
+    function spawnObject(){
+      const isBomb = Math.random() < 0.16;
+      const x = rand(50, W-50);
+      const speed = rand(560, 720);
+      const obj = {
+        x, y: H+30, vx: rand(-90,90), vy: -speed,
+        gravity: 900, sliced:false, isBomb,
+        type: isBomb ? null : FRUIT_TYPES[randInt(0,FRUIT_TYPES.length-1)],
+        r: isBomb? 24 : 0, rot: rand(0,Math.PI*2), rotSpd: rand(-3,3)
+      };
+      if(!isBomb) obj.r = obj.type.r;
+      objects.push(obj);
+    }
+
+    function update(dt){
+      if(over) return;
+      elapsed += dt;
+      spawnInterval = Math.max(0.45, 1.1 - elapsed*0.01);
+      spawnTimer -= dt;
+      if(spawnTimer <= 0){ spawnObject(); spawnTimer = spawnInterval * rand(0.7,1.3); }
+
+      if(comboTimer > 0){ comboTimer -= dt; if(comboTimer<=0) combo = 0; }
+
+      for(let i=objects.length-1;i>=0;i--){
+        const o = objects[i];
+        o.vy += o.gravity*dt;
+        o.x += o.vx*dt; o.y += o.vy*dt;
+        o.rot += o.rotSpd*dt;
+        if(o.y - o.r > H+40 && !o.sliced){
+          if(!o.isBomb){
+            lives--;
+            triggerShake(4,0.15);
+            if(lives<=0){ finish(); }
+          }
+          objects.splice(i,1);
+          continue;
+        }
+        if(o.sliced && o.y > H+100){ objects.splice(i,1); }
+      }
+
+      // slicing detection: check trail segments against objects
+      if(input.pointer.down && trail.length>0){
+        const last = trail[trail.length-1];
+        const cur = {x:input.pointer.x, y:input.pointer.y};
+        if(dist(last.x,last.y,cur.x,cur.y) > 2){
+          for(const o of objects){
+            if(o.sliced) continue;
+            if(segCircleHit(last.x,last.y,cur.x,cur.y,o.x,o.y,o.r+8+bladeBonus)){
+              sliceObject(o);
+            }
+          }
+        }
+        trail.push(cur);
+        if(trail.length>10) trail.shift();
+      } else if(input.pointer.down){
+        trail.push({x:input.pointer.x,y:input.pointer.y});
+      } else {
+        trail.length = 0;
+      }
+
+      particles.update(dt);
+    }
+
+    function segCircleHit(x1,y1,x2,y2,cx,cy,r){
+      const dx=x2-x1, dy=y2-y1;
+      const len2 = dx*dx+dy*dy;
+      let t = len2>0 ? ((cx-x1)*dx+(cy-y1)*dy)/len2 : 0;
+      t = clamp(t,0,1);
+      const px = x1+dx*t, py = y1+dy*t;
+      return dist(px,py,cx,cy) <= r;
+    }
+
+    function sliceObject(o){
+      o.sliced = true;
+      if(o.isBomb){
+        sound.hit();
+        triggerShake(10,0.3);
+        particles.burst(o.x,o.y,"#ffae00",26,{minSpd:100,maxSpd:400,gravity:600});
+        finish();
+        return;
+      }
+      combo++; comboTimer = 0.9;
+      const base = o.type.pts;
+      const gained = base * (1 + Math.min(combo-1,6)*0.5);
+      addScore(gained);
+      sound.collect();
+      particles.burst(o.x,o.y,o.type.color,16,{minSpd:60,maxSpd:260,gravity:500});
+      o.vy *= 0.3; o.vx *= 2.2;
+    }
+
+    function finish(){
+      if(over) return;
+      over = true;
+      setTimeout(()=>endGame({}), 200);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle = "#0b0f1e";
+      ctx.fillRect(0,0,W,H);
+      // lane guides
+      ctx.fillStyle = "rgba(63,240,255,0.04)";
+      for(let i=0;i<W;i+=40) ctx.fillRect(i,0,1,H);
+
+      for(const o of objects){
+        ctx.save();
+        ctx.translate(o.x,o.y);
+        ctx.rotate(o.rot);
+        if(o.isBomb){
+          ctx.fillStyle = "#1a1a1a";
+          ctx.beginPath(); ctx.arc(0,0,o.r,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle = "#444"; ctx.fillRect(-4,-o.r-10,8,10);
+          ctx.fillStyle = "#ff6a3a";
+          ctx.beginPath(); ctx.arc(0,-o.r-12,4,0,Math.PI*2); ctx.fill();
+        } else {
+          if(o.sliced){
+            ctx.fillStyle = o.type.dark;
+            ctx.beginPath(); ctx.arc(-6,0,o.r*0.75,0.3*Math.PI,1.3*Math.PI); ctx.fill();
+            ctx.fillStyle = o.type.color;
+            ctx.beginPath(); ctx.arc(-6,0,o.r*0.62,0.3*Math.PI,1.3*Math.PI); ctx.fill();
+            ctx.fillStyle = o.type.dark;
+            ctx.beginPath(); ctx.arc(8,0,o.r*0.75,-0.7*Math.PI,0.3*Math.PI); ctx.fill();
+            ctx.fillStyle = o.type.color;
+            ctx.beginPath(); ctx.arc(8,0,o.r*0.62,-0.7*Math.PI,0.3*Math.PI); ctx.fill();
+          } else {
+            ctx.fillStyle = o.type.dark;
+            ctx.beginPath(); ctx.arc(0,0,o.r,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle = o.type.color;
+            ctx.beginPath(); ctx.arc(0,0,o.r-4,0,Math.PI*2); ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.35)";
+            ctx.beginPath(); ctx.arc(-o.r*0.3,-o.r*0.3,o.r*0.25,0,Math.PI*2); ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+      particles.draw(ctx);
+
+      if(trail.length>1){
+        ctx.strokeStyle = "rgba(63,240,255,0.8)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(trail[0].x,trail[0].y);
+        for(const p of trail) ctx.lineTo(p.x,p.y);
+        ctx.stroke();
+      }
+
+      // HUD extra: lives & combo
+      ctx.fillStyle = "#ff3fb0";
+      ctx.font = "bold 18px monospace";
+      let liveStr = "";
+      for(let i=0;i<lives;i++) liveStr += "❤ ";
+      ctx.fillText(liveStr, 14, 30);
+      if(combo>1){
+        ctx.fillStyle = "#ffe23f";
+        ctx.font = "bold 20px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("COMBO x"+combo, W/2, 40);
+        ctx.textAlign = "left";
+      }
+    }
+
+    return { update, draw, destroy(){ objects=[]; particles.clear(); } };
+  }
+
+  window.__registerGame({
+    id:"fruit-slash", name:"Pixel Fruit Slash",
+    desc:"میوه‌ها را برش بزن، بمب رو دست نزن!",
+    color:"#ff5252", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 2: BLOCKY FLAPPY
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle = "#ffe23a";
+    cctx.fillRect(8,10,16,16);
+    cctx.fillStyle = "#1a1a1a";
+    cctx.fillRect(20,14,4,4);
+    cctx.fillStyle = "#ff8a3a";
+    cctx.fillRect(24,18,6,4);
+    cctx.fillStyle = "#3dff8a";
+    cctx.fillRect(4,4,6,24);
+    cctx.fillRect(24,2,6,10);
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const bird = { x: W*0.28, y:H/2, vy:0, r:16, rot:0 };
+    const GRAV = 1500, FLAP = -430;
+    let pipes = [];
+    let spawnTimer = 0;
+    const gap = 175;
+    let over = false;
+    let started = false;
+    const particles = makeParticleSystem();
+    let flapAnim = 0;
+    let hasShield = getUpgradeLevel("shieldLevel") >= 1;
+    let shieldFlash = 0;
+
+    function flap(){
+      if(over) return;
+      started = true;
+      bird.vy = FLAP;
+      sound.jump();
+      flapAnim = 0.15;
+    }
+    function onDown(){ flap(); }
+    window.addEventListener("keydown", keyHandler);
+    function keyHandler(e){ if(e.code==="Space"||e.code==="ArrowUp") flap(); }
+    canvas.addEventListener("mousedown", onDown);
+    canvas.addEventListener("touchstart", onDown);
+
+    function spawnPipe(){
+      const margin = 80;
+      const centerY = rand(margin+gap/2, H-margin-gap/2);
+      pipes.push({ x: W+40, top: centerY-gap/2, bottom: centerY+gap/2, passed:false, w:56 });
+    }
+
+    function update(dt){
+      if(!started) return;
+      if(over) return;
+      bird.vy += GRAV*dt;
+      bird.y += bird.vy*dt;
+      bird.rot = clamp(bird.vy/700, -0.6, 1.2);
+      if(flapAnim>0) flapAnim -= dt;
+      if(shieldFlash>0) shieldFlash -= dt;
+
+      spawnTimer -= dt;
+      if(spawnTimer<=0){ spawnPipe(); spawnTimer = 1.5; }
+
+      for(let i=pipes.length-1;i>=0;i--){
+        const p = pipes[i];
+        p.x -= 210*dt;
+        if(!p.passed && p.x+p.w < bird.x){ p.passed = true; addScore(1); sound.collect(); }
+        if(p.x < -80) pipes.splice(i,1);
+        // collision (ignored briefly right after a shield absorbs a hit, so the
+        // bird has time to clear the pipe instead of dying again next frame)
+        if(bird.x+bird.r > p.x && bird.x-bird.r < p.x+p.w){
+          if((bird.y-bird.r < p.top || bird.y+bird.r > p.bottom) && shieldFlash<=0){
+            crash();
+          }
+        }
+      }
+      if((bird.y+bird.r > H || bird.y-bird.r < 0) && shieldFlash<=0){ crash(); }
+      particles.update(dt);
+    }
+
+    function crash(){
+      if(over) return;
+      if(hasShield){
+        hasShield = false;
+        shieldFlash = 0.6;
+        sound.hit();
+        triggerShake(6,0.25);
+        particles.burst(bird.x,bird.y,"#3ff0ff",16,{gravity:300});
+        bird.vy = FLAP*0.6;
+        bird.y = clamp(bird.y, bird.r+4, H-bird.r-4);
+        return;
+      }
+      over = true;
+      sound.hit();
+      triggerShake(8,0.3);
+      particles.burst(bird.x,bird.y,"#ffe23a",20,{gravity:800});
+      setTimeout(()=>endGame({}), 300);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle = "#0b0f1e";
+      ctx.fillRect(0,0,W,H);
+      // stars bg
+      ctx.fillStyle = "rgba(63,240,255,0.15)";
+      for(let i=0;i<40;i++){
+        const x=(i*97)%W, y=(i*53+((Date.now()/40)|0))%H;
+        ctx.fillRect(x,y,2,2);
+      }
+      ctx.fillStyle = "#3dff8a";
+      for(const p of pipes){
+        ctx.fillRect(p.x,0,p.w,p.top);
+        ctx.fillRect(p.x,p.bottom,p.w,H-p.bottom);
+        ctx.fillStyle = "#2acb6a";
+        ctx.fillRect(p.x-4,p.top-18,p.w+8,18);
+        ctx.fillRect(p.x-4,p.bottom,p.w+8,18);
+        ctx.fillStyle = "#3dff8a";
+      }
+      ctx.save();
+      ctx.translate(bird.x,bird.y);
+      ctx.rotate(bird.rot*0.5);
+      ctx.fillStyle = "#ffe23a";
+      ctx.fillRect(-bird.r,-bird.r,bird.r*2,bird.r*2);
+      ctx.fillStyle = "#1a1a1a";
+      ctx.fillRect(bird.r*0.2,-bird.r*0.5,5,5);
+      ctx.fillStyle = "#ff8a3a";
+      ctx.fillRect(bird.r*0.6, -2, 10, 8);
+      ctx.fillStyle = flapAnim>0 ? "#fff3a0" : "#e0c020";
+      ctx.fillRect(-bird.r-6, -4, 8, 12);
+      ctx.restore();
+      if(hasShield || shieldFlash>0){
+        ctx.save();
+        ctx.strokeStyle = shieldFlash>0 ? "rgba(63,240,255,0.9)" : "rgba(63,240,255,0.45)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(bird.x, bird.y, bird.r+8, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+      }
+      particles.draw(ctx);
+
+      if(!started){
+        ctx.fillStyle = "#eaf2ff";
+        ctx.font = "bold 20px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("برای پرواز لمس/کلیک کن", W/2, H/2+60);
+        ctx.textAlign = "left";
+      }
+    }
+
+    return { update, draw, destroy(){
+      window.removeEventListener("keydown", keyHandler);
+      canvas.removeEventListener("mousedown", onDown);
+      canvas.removeEventListener("touchstart", onDown);
+      pipes=[]; particles.clear();
+    }};
+  }
+
+  window.__registerGame({
+    id:"blocky-flappy", name:"Blocky Flappy",
+    desc:"از بین بلوک‌ها پرواز کن و امتیاز بگیر.",
+    color:"#ffe23a", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 3: BLOCK 2048
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle = "#3a2f6a"; cctx.fillRect(2,2,28,28);
+    const cols = ["#ff8a3a","#ffd23a","#3aff6e","#3ff0ff"];
+    let i=0;
+    for(let r=0;r<2;r++)for(let c=0;c<2;c++){
+      cctx.fillStyle = cols[i++];
+      cctx.fillRect(4+c*14,4+r*14,12,12);
+    }
+  }
+
+  const TILE_COLORS = {
+    2:"#eee4da", 4:"#ede0c8", 8:"#f2b179", 16:"#f59563", 32:"#f67c5f",
+    64:"#f65e3b", 128:"#edcf72", 256:"#edcc61", 512:"#edc850", 1024:"#edc53f", 2048:"#3ff0ff"
+  };
+
+  function init(api){
+    const { W,H,input,sound,addScore,endGame,setScore } = api;
+    const SIZE = 4;
+    const boardPx = 380, margin = (W-boardPx)/2, top = 130, cell = boardPx/SIZE, gapPx = 8;
+    let grid, score, over, won, announced;
+
+    function reset(){
+      grid = Array.from({length:SIZE},()=>Array(SIZE).fill(0));
+      score = 0; over = false; won = false; announced = false;
+      addTile(); addTile();
+      setScore(0);
+    }
+    reset();
+
+    function addTile(){
+      const empty = [];
+      for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++) if(grid[r][c]===0) empty.push([r,c]);
+      if(empty.length===0) return;
+      const [r,c] = empty[Math.floor(Math.random()*empty.length)];
+      grid[r][c] = Math.random()<0.9 ? 2 : 4;
+    }
+
+    function slideLine(line){
+      let arr = line.filter(v=>v!==0);
+      let gained = 0;
+      for(let i=0;i<arr.length-1;i++){
+        if(arr[i]===arr[i+1]){
+          arr[i]*=2; gained += arr[i];
+          arr.splice(i+1,1);
+        }
+      }
+      while(arr.length<SIZE) arr.push(0);
+      return {arr, gained};
+    }
+
+    function move(dir){ // 0 up 1 right 2 down 3 left
+      if(over) return;
+      let moved = false, totalGain = 0;
+      const before = JSON.stringify(grid);
+      if(dir===3||dir===1){
+        for(let r=0;r<SIZE;r++){
+          let line = grid[r].slice();
+          if(dir===1) line.reverse();
+          const {arr,gained} = slideLine(line);
+          if(dir===1) arr.reverse();
+          grid[r] = arr;
+          totalGain += gained;
+        }
+      } else {
+        for(let c=0;c<SIZE;c++){
+          let line = [];
+          for(let r=0;r<SIZE;r++) line.push(grid[r][c]);
+          if(dir===2) line.reverse();
+          const {arr,gained} = slideLine(line);
+          if(dir===2) arr.reverse();
+          for(let r=0;r<SIZE;r++) grid[r][c] = arr[r];
+          totalGain += gained;
+        }
+      }
+      moved = JSON.stringify(grid) !== before;
+      if(moved){
+        score += totalGain;
+        if(totalGain>0) sound.collect(); else sound.click();
+        addScore(totalGain>0?totalGain:0.0001);
+        setScore(score);
+        addTile();
+        checkGameState();
+      }
+    }
+
+    function checkGameState(){
+      for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+        if(grid[r][c]===2048 && !announced){ won=true; announced=true; }
+      }
+      let hasEmpty=false, canMerge=false;
+      for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+        if(grid[r][c]===0) hasEmpty=true;
+        if(r<SIZE-1 && grid[r][c]===grid[r+1][c]) canMerge=true;
+        if(c<SIZE-1 && grid[r][c]===grid[r][c+1]) canMerge=true;
+      }
+      if(!hasEmpty && !canMerge){
+        over = true;
+        setTimeout(()=>endGame({}), 250);
+      } else if(won){
+        over = true;
+        setTimeout(()=>endGame({win:true}), 250);
+      }
+    }
+
+    function keyHandler(e){
+      if(e.code==="ArrowUp"||e.code==="KeyW") move(0);
+      else if(e.code==="ArrowRight"||e.code==="KeyD") move(1);
+      else if(e.code==="ArrowDown"||e.code==="KeyS") move(2);
+      else if(e.code==="ArrowLeft"||e.code==="KeyA") move(3);
+    }
+    window.addEventListener("keydown", keyHandler);
+
+    let swipeStart = null;
+    function onDown(e){ swipeStart = {x:input.pointer.x, y:input.pointer.y}; }
+    function onUp(e){
+      if(!swipeStart) return;
+      const dx = input.pointer.x - swipeStart.x, dy = input.pointer.y - swipeStart.y;
+      if(Math.abs(dx)<20 && Math.abs(dy)<20){ swipeStart=null; return; }
+      if(Math.abs(dx) > Math.abs(dy)) move(dx>0?1:3);
+      else move(dy>0?2:0);
+      swipeStart = null;
+    }
+    canvas.addEventListener("mousedown", onDown);
+    window.addEventListener("mouseup", onUp);
+    canvas.addEventListener("touchstart", onDown, {passive:false});
+    canvas.addEventListener("touchend", onUp, {passive:false});
+
+    function update(dt){}
+
+    function draw(ctx){
+      ctx.fillStyle = "#0b0f1e";
+      ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = "#eaf2ff";
+      ctx.font = "bold 20px monospace";
+      ctx.textAlign="center";
+      ctx.fillText("BLOCK 2048", W/2, 60);
+      ctx.font = "13px monospace";
+      ctx.fillStyle = "#8ea0c8";
+      ctx.fillText("Swipe یا کیبورد جهت‌دار", W/2, 88);
+      ctx.textAlign="left";
+
+      ctx.fillStyle = "#1a2340";
+      api.roundRect(ctx, margin-gapPx, top-gapPx, boardPx+gapPx*2, boardPx+gapPx*2, 10);
+      ctx.fill();
+
+      for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+          const v = grid[r][c];
+          const x = margin + c*cell + gapPx/2, y = top + r*cell + gapPx/2;
+          const w = cell-gapPx;
+          ctx.fillStyle = v ? (TILE_COLORS[v]||"#3a2f6a") : "rgba(255,255,255,0.04)";
+          api.roundRect(ctx, x, y, w, w, 6);
+          ctx.fill();
+          if(v){
+            ctx.fillStyle = v<=4 ? "#3a2f2a" : "#1a1030";
+            ctx.font = "bold "+(v<100?26:v<1000?22:18)+"px monospace";
+            ctx.textAlign = "center"; ctx.textBaseline="middle";
+            ctx.fillText(v, x+w/2, y+w/2+2);
+            ctx.textBaseline="alphabetic";
+          }
+        }
+      }
+      ctx.textAlign="left";
+    }
+
+    return { update, draw, destroy(){
+      window.removeEventListener("keydown", keyHandler);
+      canvas.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mouseup", onUp);
+      canvas.removeEventListener("touchstart", onDown);
+      canvas.removeEventListener("touchend", onUp);
+    }};
+  }
+
+  window.__registerGame({
+    id:"block-2048", name:"Block 2048",
+    desc:"بلوک‌های هم‌عدد رو ترکیب کن تا برسی به ۲۰۴۸.",
+    color:"#3ff0ff", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 4: CREEPER DODGE
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle = "#3dff6e"; cctx.fillRect(4,4,24,24);
+    cctx.fillStyle = "#0b3d1a";
+    cctx.fillRect(9,9,4,6); cctx.fillRect(19,9,4,6);
+    cctx.fillRect(13,17,6,4); cctx.fillRect(9,21,4,3); cctx.fillRect(19,21,4,3);
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,dist,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const moveSpd = 230 + getUpgradeLevel("bootsLevelCreeper")*35;
+    const player = { x:W/2, y:H/2, r:16 };
+    let enemies = [];
+    let spawnTimer = 0;
+    let elapsed = 0;
+    let over = false;
+    const particles = makeParticleSystem();
+
+    function spawnEnemy(){
+      const edge = Math.floor(rand(0,4));
+      let x,y;
+      if(edge===0){ x=rand(0,W); y=-20; }
+      else if(edge===1){ x=W+20; y=rand(0,H); }
+      else if(edge===2){ x=rand(0,W); y=H+20; }
+      else { x=-20; y=rand(0,H); }
+      const speed = rand(60,110) + Math.min(elapsed*3, 120);
+      enemies.push({x,y,speed,r:15,wob:rand(0,10)});
+    }
+
+    function update(dt){
+      if(over) return;
+      elapsed += dt;
+      setScore(elapsed*10);
+      spawnTimer -= dt;
+      const interval = Math.max(0.35, 1.3 - elapsed*0.02);
+      if(spawnTimer<=0){ spawnEnemy(); spawnTimer = interval; }
+
+      // player movement: keyboard
+      let dx=0, dy=0;
+      if(input.keys["ArrowLeft"]||input.keys["KeyA"]) dx-=1;
+      if(input.keys["ArrowRight"]||input.keys["KeyD"]) dx+=1;
+      if(input.keys["ArrowUp"]||input.keys["KeyW"]) dy-=1;
+      if(input.keys["ArrowDown"]||input.keys["KeyS"]) dy+=1;
+      // drag control
+      if(input.pointer.down){
+        const ddx = input.pointer.x - player.x, ddy = input.pointer.y - player.y;
+        const dd = Math.hypot(ddx,ddy);
+        if(dd>4){ dx = ddx/dd; dy = ddy/dd; }
+      }
+      const len = Math.hypot(dx,dy);
+      if(len>0){ dx/=len; dy/=len; }
+      const spd = moveSpd;
+      player.x = clamp(player.x + dx*spd*dt, player.r, W-player.r);
+      player.y = clamp(player.y + dy*spd*dt, player.r, H-player.r);
+
+      for(const e of enemies){
+        const ang = Math.atan2(player.y-e.y, player.x-e.x);
+        e.wob += dt*6;
+        e.x += Math.cos(ang)*e.speed*dt;
+        e.y += Math.sin(ang)*e.speed*dt;
+        if(dist(e.x,e.y,player.x,player.y) < e.r+player.r-4){
+          crash();
+        }
+      }
+      particles.update(dt);
+    }
+
+    function crash(){
+      if(over) return;
+      over = true;
+      sound.hit();
+      triggerShake(10,0.35);
+      particles.burst(player.x,player.y,"#3dff6e",24,{gravity:400});
+      setTimeout(()=>endGame({}), 300);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="rgba(63,240,255,0.05)";
+      for(let i=0;i<W;i+=30) ctx.fillRect(i,0,1,H);
+      for(let i=0;i<H;i+=30) ctx.fillRect(0,i,W,1);
+
+      for(const e of enemies){
+        const wobble = Math.sin(e.wob)*3;
+        ctx.fillStyle="#3dff6e";
+        ctx.fillRect(e.x-e.r,e.y-e.r+wobble,e.r*2,e.r*2);
+        ctx.fillStyle="#0b3d1a";
+        ctx.fillRect(e.x-e.r*0.5,e.y-e.r*0.5+wobble,4,5);
+        ctx.fillRect(e.x+e.r*0.15,e.y-e.r*0.5+wobble,4,5);
+        ctx.fillRect(e.x-e.r*0.25,e.y+e.r*0.1+wobble,e.r*0.5,4);
+      }
+      ctx.fillStyle="#3ff0ff";
+      ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle="#0a2a30";
+      ctx.beginPath(); ctx.arc(player.x-5,player.y-3,3,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(player.x+5,player.y-3,3,0,Math.PI*2); ctx.fill();
+
+      particles.draw(ctx);
+
+      if(!input.pointer.down){
+        ctx.fillStyle="rgba(234,242,255,0.55)";
+        ctx.font="12px monospace"; ctx.textAlign="center";
+        ctx.fillText("حرکت: کیبورد یا لمس و کشیدن", W/2, H-20);
+        ctx.textAlign="left";
+      }
+    }
+
+    return { update, draw, destroy(){ enemies=[]; particles.clear(); } };
+  }
+
+  window.__registerGame({
+    id:"creeper-dodge", name:"Creeper Dodge",
+    desc:"از دشمن‌های سبز فرار کن و زنده بمون.",
+    color:"#3dff6e", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 5: DIAMOND RUSH
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#3ff0ff";
+    cctx.beginPath();
+    cctx.moveTo(16,4); cctx.lineTo(27,13); cctx.lineTo(16,29); cctx.lineTo(5,13);
+    cctx.closePath(); cctx.fill();
+    cctx.fillStyle="rgba(255,255,255,0.5)";
+    cctx.beginPath(); cctx.moveTo(16,4); cctx.lineTo(21,13); cctx.lineTo(11,13); cctx.closePath(); cctx.fill();
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,randInt,triggerShake,makeParticleSystem,addScore,endGame,setScore,dist } = api;
+    const lensBonus = getUpgradeLevel("lensLevel")*8;
+    const DURATION = 40;
+    let timeLeft = DURATION;
+    let over = false;
+    let spots = []; // active pop-up spots
+    let spawnTimer = 0;
+    const particles = makeParticleSystem();
+    let combo = 0;
+
+    function spawnSpot(){
+      const isBomb = Math.random() < 0.28;
+      const margin = 60;
+      const x = rand(margin, W-margin);
+      const y = rand(160, H-100);
+      spots.push({
+        x,y, isBomb, r:0, maxR: isBomb?26:30,
+        life: isBomb ? rand(0.9,1.3) : rand(0.8,1.4),
+        age:0, grabbed:false
+      });
+    }
+
+    function update(dt){
+      if(over) return;
+      timeLeft -= dt;
+      if(timeLeft<=0){ timeLeft=0; finish(); return; }
+
+      spawnTimer -= dt;
+      const rate = Math.max(0.35, 0.75 - (DURATION-timeLeft)*0.008);
+      if(spawnTimer<=0){ spawnSpot(); spawnTimer = rate; }
+
+      for(let i=spots.length-1;i>=0;i--){
+        const s = spots[i];
+        s.age += dt;
+        const t = s.age/s.life;
+        s.r = t<0.5 ? s.maxR*(t/0.5) : s.maxR*(1-(t-0.5)/0.5);
+        if(s.age>=s.life) spots.splice(i,1);
+      }
+
+      if(input.pointer.justDown){
+        for(let i=spots.length-1;i>=0;i--){
+          const s = spots[i];
+          if(s.grabbed) continue;
+          if(dist(input.pointer.x,input.pointer.y,s.x,s.y) <= s.r+10+lensBonus){
+            s.grabbed = true;
+            if(s.isBomb){
+              combo=0;
+              addScore(-15);
+              sound.hit(); triggerShake(5,0.15);
+              particles.burst(s.x,s.y,"#ff5252",14,{gravity:500});
+            } else {
+              combo++;
+              const pts = 10 + Math.min(combo,10)*2;
+              addScore(pts);
+              sound.collect();
+              particles.burst(s.x,s.y,"#3ff0ff",14,{gravity:300});
+            }
+            spots.splice(i,1);
+            break;
+          }
+        }
+        input.pointer.justDown = false;
+      }
+      particles.update(dt);
+    }
+
+    function finish(){
+      if(over) return;
+      over = true;
+      setTimeout(()=>endGame({}), 200);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="#eaf2ff"; ctx.font="bold 22px monospace"; ctx.textAlign="center";
+      ctx.fillText("⏱ "+Math.ceil(timeLeft)+"s", W/2, 100);
+      if(combo>2){
+        ctx.fillStyle="#ffe23f"; ctx.font="bold 16px monospace";
+        ctx.fillText("COMBO x"+combo, W/2, 128);
+      }
+      ctx.textAlign="left";
+
+      for(const s of spots){
+        if(s.r<=0) continue;
+        ctx.save();
+        ctx.translate(s.x,s.y);
+        if(s.isBomb){
+          ctx.fillStyle="#1a1a1a";
+          ctx.beginPath(); ctx.arc(0,0,s.r,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle="#ff6a3a";
+          ctx.beginPath(); ctx.arc(0,-s.r,4,0,Math.PI*2); ctx.fill();
+        } else {
+          ctx.fillStyle="#1a7a8a";
+          ctx.beginPath();
+          ctx.moveTo(0,-s.r); ctx.lineTo(s.r*0.9,-s.r*0.3); ctx.lineTo(0,s.r); ctx.lineTo(-s.r*0.9,-s.r*0.3);
+          ctx.closePath(); ctx.fill();
+          ctx.fillStyle="#3ff0ff";
+          ctx.beginPath();
+          ctx.moveTo(0,-s.r*0.8); ctx.lineTo(s.r*0.7,-s.r*0.25); ctx.lineTo(0,s.r*0.8); ctx.lineTo(-s.r*0.7,-s.r*0.25);
+          ctx.closePath(); ctx.fill();
+        }
+        ctx.restore();
+      }
+      particles.draw(ctx);
+
+      ctx.fillStyle="rgba(234,242,255,0.5)";
+      ctx.font="12px monospace"; ctx.textAlign="center";
+      ctx.fillText("الماس‌ها رو لمس کن، بمب رو نه!", W/2, H-20);
+      ctx.textAlign="left";
+    }
+
+    return { update, draw, destroy(){ spots=[]; particles.clear(); } };
+  }
+
+  window.__registerGame({
+    id:"diamond-rush", name:"Diamond Rush",
+    desc:"الماس‌ها رو سریع جمع کن قبل از تموم شدن زمان.",
+    color:"#3ff0ff", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 6: TNT ESCAPE
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#ff5252"; cctx.fillRect(6,10,20,18);
+    cctx.fillStyle="#fff"; cctx.font="bold 10px monospace";
+    cctx.fillStyle="#1a1a1a"; cctx.fillRect(6,16,20,6);
+    cctx.fillStyle="#7a5a10"; cctx.fillRect(14,4,4,8);
+    cctx.fillStyle="#ff8a3a"; cctx.beginPath(); cctx.arc(16,4,3,0,Math.PI*2); cctx.fill();
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,dist,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const moveSpd = 220 + getUpgradeLevel("bootsLevelTnt")*35;
+    const player = { x:W/2, y:H/2, r:15 };
+    let tnts = [];
+    let spawnTimer = 0.6;
+    let elapsed = 0;
+    let over = false;
+    const particles = makeParticleSystem();
+
+    function spawnTNT(){
+      const x = rand(50,W-50), y = rand(150,H-60);
+      const fuse = rand(1.6, 2.6);
+      tnts.push({x,y,fuse,age:0,maxR:rand(70,110),exploded:false,explodeT:0});
+    }
+
+    function update(dt){
+      if(over) return;
+      elapsed += dt;
+      setScore(elapsed*10);
+      spawnTimer -= dt;
+      const rate = Math.max(0.5, 1.4 - elapsed*0.015);
+      if(spawnTimer<=0){ spawnTNT(); spawnTimer = rate; }
+
+      let dx=0,dy=0;
+      if(input.keys["ArrowLeft"]||input.keys["KeyA"]) dx-=1;
+      if(input.keys["ArrowRight"]||input.keys["KeyD"]) dx+=1;
+      if(input.keys["ArrowUp"]||input.keys["KeyW"]) dy-=1;
+      if(input.keys["ArrowDown"]||input.keys["KeyS"]) dy+=1;
+      if(input.pointer.down){
+        const ddx=input.pointer.x-player.x, ddy=input.pointer.y-player.y;
+        const dd=Math.hypot(ddx,ddy);
+        if(dd>4){dx=ddx/dd;dy=ddy/dd;}
+      }
+      const len=Math.hypot(dx,dy);
+      if(len>0){dx/=len;dy/=len;}
+      player.x = clamp(player.x+dx*moveSpd*dt, player.r, W-player.r);
+      player.y = clamp(player.y+dy*220*dt, player.r, H-player.r);
+
+      for(let i=tnts.length-1;i>=0;i--){
+        const t = tnts[i];
+        if(!t.exploded){
+          t.age += dt;
+          if(t.age >= t.fuse){
+            t.exploded = true;
+            sound.hit();
+            triggerShake(9,0.3);
+            particles.burst(t.x,t.y,"#ff8a3a",30,{minSpd:100,maxSpd:420,gravity:500});
+            if(dist(t.x,t.y,player.x,player.y) < t.maxR){
+              crash();
+            }
+          }
+        } else {
+          t.explodeT += dt;
+          if(t.explodeT > 0.4) tnts.splice(i,1);
+        }
+      }
+      particles.update(dt);
+    }
+
+    function crash(){
+      if(over) return;
+      over = true;
+      particles.burst(player.x,player.y,"#3ff0ff",20,{gravity:400});
+      setTimeout(()=>endGame({}), 300);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      for(const t of tnts){
+        if(!t.exploded){
+          const pulse = 1 + Math.sin(t.age*20)*0.05*Math.min(1,t.age/t.fuse*3);
+          ctx.strokeStyle="rgba(255,82,82,"+(0.15+0.25*(t.age/t.fuse))+")";
+          ctx.lineWidth=2;
+          ctx.beginPath(); ctx.arc(t.x,t.y,t.maxR*(t.age/t.fuse),0,Math.PI*2); ctx.stroke();
+          ctx.fillStyle="#ff5252";
+          ctx.save(); ctx.translate(t.x,t.y); ctx.scale(pulse,pulse);
+          ctx.fillRect(-14,-10,28,20);
+          ctx.fillStyle="#1a1a1a"; ctx.fillRect(-14,-3,28,6);
+          ctx.fillStyle="#fff"; ctx.font="bold 9px monospace"; ctx.textAlign="center";
+          ctx.fillText("TNT",0,3);
+          ctx.restore();
+        } else {
+          const t2 = t.explodeT/0.4;
+          ctx.fillStyle = "rgba(255,138,58,"+(1-t2)+")";
+          ctx.beginPath(); ctx.arc(t.x,t.y,t.maxR*0.9*t2,0,Math.PI*2); ctx.fill();
+        }
+      }
+      ctx.textAlign="left";
+      ctx.fillStyle="#3ff0ff";
+      ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2); ctx.fill();
+      particles.draw(ctx);
+    }
+
+    return { update, draw, destroy(){ tnts=[]; particles.clear(); } };
+  }
+
+  window.__registerGame({
+    id:"tnt-escape", name:"TNT Escape",
+    desc:"از محدوده انفجار TNTها فرار کن.",
+    color:"#ff5252", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 7: PIXEL MINER
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#8a6a3a"; cctx.fillRect(4,4,10,10);
+    cctx.fillStyle="#ffd23a"; cctx.fillRect(18,4,10,10);
+    cctx.fillStyle="#3ff0ff"; cctx.fillRect(4,18,10,10);
+    cctx.fillStyle="#7a7a7a"; cctx.fillRect(18,18,10,10);
+    cctx.strokeStyle="#1a1a1a"; cctx.lineWidth=1;
+    cctx.strokeRect(4,4,10,10); cctx.strokeRect(18,4,10,10);
+    cctx.strokeRect(4,18,10,10); cctx.strokeRect(18,18,10,10);
+  }
+
+  const BLOCK_TYPES = [
+    { name:"dirt", color:"#8a6a3a", dark:"#5a4020", pts:2, hp:1, chance:44 },
+    { name:"stone", color:"#8a8a8a", dark:"#555", pts:4, hp:2, chance:28 },
+    { name:"iron", color:"#c9b998", dark:"#8a7a58", pts:8, hp:2, chance:14 },
+    { name:"gold", color:"#ffd23a", dark:"#a08010", pts:16, hp:3, chance:9 },
+    { name:"diamond", color:"#3ff0ff", dark:"#1a8a9a", pts:35, hp:3, chance:5 }
+  ];
+  function pickType(){
+    let r = Math.random()*100;
+    for(const t of BLOCK_TYPES){ if(r<t.chance) return t; r -= t.chance; }
+    return BLOCK_TYPES[0];
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const COLS=6, ROWS=6;
+    const boardTop = 120, cellSize = 56, gap=6;
+    const boardW = COLS*cellSize, startX = (W-boardW)/2;
+    const pickaxeLv = getUpgradeLevel("pickaxeLevel");
+    const maxEnergy = 100 + getUpgradeLevel("batteryLevel")*25;
+    let energy = maxEnergy;
+    let over = false;
+    let grid = [];
+    const particles = makeParticleSystem();
+
+    function reset(){
+      grid = [];
+      for(let r=0;r<ROWS;r++){
+        const row=[];
+        for(let c=0;c<COLS;c++){
+          const type = pickType();
+          row.push({ type, hp: Math.max(1, type.hp - pickaxeLv), cracks:0, gone:false });
+        }
+        grid.push(row);
+      }
+    }
+    reset();
+
+    function cellAt(px,py){
+      const c = Math.floor((px-startX)/cellSize);
+      const r = Math.floor((py-boardTop)/cellSize);
+      if(r<0||r>=ROWS||c<0||c>=COLS) return null;
+      return {r,c};
+    }
+
+    function update(dt){
+      if(over) return;
+      if(input.pointer.justDown){
+        const cell = cellAt(input.pointer.x, input.pointer.y);
+        if(cell){
+          const b = grid[cell.r][cell.c];
+          if(!b.gone){
+            b.hp--;
+            energy -= Math.max(2, 6 - pickaxeLv*2);
+            const cx = startX+cell.c*cellSize+cellSize/2, cy = boardTop+cell.r*cellSize+cellSize/2;
+            if(b.hp<=0){
+              b.gone = true;
+              addScore(b.type.pts);
+              sound.collect();
+              particles.burst(cx,cy,b.type.color,14,{gravity:400});
+            } else {
+              sound.hit();
+              particles.burst(cx,cy,b.type.dark,5,{gravity:300,minSpd:30,maxSpd:100});
+            }
+          }
+        }
+        input.pointer.justDown = false;
+      }
+      if(energy<=0){ energy=0; finish(); }
+      particles.update(dt);
+
+      let allGone = true;
+      for(const row of grid) for(const b of row) if(!b.gone) allGone=false;
+      if(allGone) reset();
+    }
+
+    function finish(){
+      if(over) return;
+      over = true;
+      setTimeout(()=>endGame({}), 200);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="#eaf2ff"; ctx.font="bold 18px monospace"; ctx.textAlign="center";
+      ctx.fillText("⛏ استخراج کن، انرژی رو مدیریت کن", W/2, 50);
+      ctx.textAlign="left";
+
+      // energy bar
+      const barW = 300, barX=(W-barW)/2, barY=76;
+      ctx.fillStyle="#1a2340"; api.roundRect(ctx,barX,barY,barW,16,8); ctx.fill();
+      ctx.fillStyle = energy>30?"#3dff8a":"#ff5252";
+      api.roundRect(ctx,barX,barY,barW*(energy/maxEnergy),16,8); ctx.fill();
+      ctx.fillStyle="#eaf2ff"; ctx.font="10px monospace"; ctx.textAlign="center";
+      ctx.fillText("ENERGY "+Math.ceil(energy)+"/"+maxEnergy, W/2, barY+12);
+      ctx.textAlign="left";
+
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          const b = grid[r][c];
+          const x = startX+c*cellSize+gap/2, y = boardTop+r*cellSize+gap/2, s=cellSize-gap;
+          if(b.gone){
+            ctx.fillStyle="rgba(255,255,255,0.03)";
+            ctx.fillRect(x,y,s,s);
+            continue;
+          }
+          ctx.fillStyle=b.type.dark;
+          ctx.fillRect(x,y,s,s);
+          ctx.fillStyle=b.type.color;
+          ctx.fillRect(x+3,y+3,s-6,s-6);
+          if(b.hp < b.type.hp){
+            ctx.strokeStyle="rgba(0,0,0,0.5)"; ctx.lineWidth=2;
+            ctx.beginPath();
+            ctx.moveTo(x+6,y+6); ctx.lineTo(x+s-8,y+s-10);
+            ctx.moveTo(x+s-6,y+8); ctx.lineTo(x+8,y+s-6);
+            ctx.stroke();
+          }
+        }
+      }
+      particles.draw(ctx);
+    }
+
+    return { update, draw, destroy(){ particles.clear(); } };
+  }
+
+  window.__registerGame({
+    id:"pixel-miner", name:"Pixel Miner",
+    desc:"بلوک‌های کمیاب رو استخراج کن، مراقب انرژی باش.",
+    color:"#ffd23a", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 8: ZOMBIE WAVE
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#5a8a4a"; cctx.fillRect(8,6,16,16);
+    cctx.fillStyle="#1a1a1a"; cctx.fillRect(11,11,3,3); cctx.fillRect(18,11,3,3);
+    cctx.fillStyle="#7a1a1a"; cctx.fillRect(12,17,8,2);
+    cctx.fillStyle="#3a5a2a"; cctx.fillRect(6,22,20,6);
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,randInt,clamp,dist,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const shootInterval = Math.max(0.15, 0.35 - getUpgradeLevel("turboLevel")*0.08);
+    const player = { x:W/2, y:H/2, r:16, hp:3 };
+    let zombies = [];
+    let bullets = [];
+    let wave = 1, toSpawn = 5, spawned = 0, spawnTimer=0;
+    let shootTimer = 0;
+    let over = false;
+    const particles = makeParticleSystem();
+    let killed = 0;
+    let flashT = 0;
+
+    function spawnZombie(){
+      const edge = randInt(0,3);
+      let x,y;
+      if(edge===0){x=rand(0,W);y=-20;} else if(edge===1){x=W+20;y=rand(0,H);}
+      else if(edge===2){x=rand(0,W);y=H+20;} else {x=-20;y=rand(0,H);}
+      zombies.push({x,y,r:15,hp:2+Math.floor(wave/3),speed:rand(40,70)+wave*3});
+    }
+
+    function nextWaveCheck(){
+      if(zombies.length===0 && spawned>=toSpawn){
+        wave++;
+        toSpawn = 5 + wave*2;
+        spawned = 0;
+        addScore(50);
+      }
+    }
+
+    function update(dt){
+      if(over) return;
+      if(flashT>0) flashT -= dt;
+      spawnTimer -= dt;
+      if(spawnTimer<=0 && spawned<toSpawn){
+        spawnZombie(); spawned++; spawnTimer = Math.max(0.3, 1.0 - wave*0.05);
+      }
+      let dx=0,dy=0;
+      if(input.keys["ArrowLeft"]||input.keys["KeyA"]) dx-=1;
+      if(input.keys["ArrowRight"]||input.keys["KeyD"]) dx+=1;
+      if(input.keys["ArrowUp"]||input.keys["KeyW"]) dy-=1;
+      if(input.keys["ArrowDown"]||input.keys["KeyS"]) dy+=1;
+      if(input.pointer.down){
+        const ddx=input.pointer.x-player.x, ddy=input.pointer.y-player.y;
+        const dd = Math.hypot(ddx,ddy);
+        if(dd>30){dx=ddx/dd;dy=ddy/dd;}
+      }
+      const len=Math.hypot(dx,dy);
+      if(len>0){dx/=len;dy/=len;}
+      player.x = clamp(player.x+dx*180*dt, player.r, W-player.r);
+      player.y = clamp(player.y+dy*180*dt, player.r, H-player.r);
+
+      shootTimer -= dt;
+      if(shootTimer<=0 && zombies.length>0){
+        let nearest=null, nd=Infinity;
+        for(const z of zombies){ const d=dist(player.x,player.y,z.x,z.y); if(d<nd){nd=d;nearest=z;} }
+        if(nearest){
+          const ang = Math.atan2(nearest.y-player.y, nearest.x-player.x);
+          bullets.push({x:player.x,y:player.y,vx:Math.cos(ang)*420,vy:Math.sin(ang)*420,life:1.2});
+          shootTimer = shootInterval;
+        }
+      }
+
+      for(let i=bullets.length-1;i>=0;i--){
+        const b=bullets[i];
+        b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+        if(b.life<=0 || b.x<0||b.x>W||b.y<0||b.y>H){ bullets.splice(i,1); continue; }
+        for(let j=zombies.length-1;j>=0;j--){
+          const z=zombies[j];
+          if(dist(b.x,b.y,z.x,z.y)<z.r){
+            z.hp--; bullets.splice(i,1);
+            particles.burst(z.x,z.y,"#5a8a4a",6,{gravity:200});
+            if(z.hp<=0){
+              zombies.splice(j,1);
+              killed++;
+              addScore(10);
+              sound.collect();
+            }
+            break;
+          }
+        }
+      }
+
+      for(let i=zombies.length-1;i>=0;i--){
+        const z=zombies[i];
+        const ang = Math.atan2(player.y-z.y, player.x-z.x);
+        z.x += Math.cos(ang)*z.speed*dt;
+        z.y += Math.sin(ang)*z.speed*dt;
+        if(dist(z.x,z.y,player.x,player.y) < z.r+player.r-4){
+          zombies.splice(i,1);
+          player.hp--;
+          flashT = 0.3;
+          sound.hit(); triggerShake(6,0.2);
+          if(player.hp<=0){ crash(); }
+        }
+      }
+      nextWaveCheck();
+      particles.update(dt);
+    }
+
+    function crash(){
+      if(over) return;
+      over = true;
+      particles.burst(player.x,player.y,"#3ff0ff",24,{gravity:400});
+      setTimeout(()=>endGame({}), 300);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="#eaf2ff"; ctx.font="bold 14px monospace"; ctx.textAlign="center";
+      ctx.fillText("WAVE "+wave, W/2, 40);
+      ctx.textAlign="left";
+      for(const b of bullets){
+        ctx.fillStyle="#ffe23f";
+        ctx.fillRect(b.x-3,b.y-3,6,6);
+      }
+      for(const z of zombies){
+        ctx.fillStyle="#5a8a4a";
+        ctx.fillRect(z.x-z.r,z.y-z.r,z.r*2,z.r*2);
+        ctx.fillStyle="#1a1a1a";
+        ctx.fillRect(z.x-z.r*0.5,z.y-z.r*0.3,4,4);
+        ctx.fillRect(z.x+z.r*0.15,z.y-z.r*0.3,4,4);
+      }
+      ctx.fillStyle = flashT>0 ? "#ff5252" : "#3ff0ff";
+      ctx.beginPath(); ctx.arc(player.x,player.y,player.r,0,Math.PI*2); ctx.fill();
+      particles.draw(ctx);
+
+      ctx.fillStyle="#ff3fb0"; ctx.font="bold 16px monospace";
+      let hpStr=""; for(let i=0;i<player.hp;i++) hpStr+="❤ ";
+      ctx.fillText(hpStr, 14, H-16);
+    }
+
+    return { update, draw, destroy(){ zombies=[]; bullets=[]; particles.clear(); } };
+  }
+
+  window.__registerGame({
+    id:"zombie-wave", name:"Zombie Wave",
+    desc:"موج زامبی‌ها رو دفع کن و زنده بمون.",
+    color:"#5a8a4a", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 9: BLOCK RUNNER
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#3ff0ff"; cctx.fillRect(10,6,12,14);
+    cctx.fillStyle="#1a1a1a"; cctx.fillRect(17,10,3,3);
+    cctx.fillStyle="#ff8a3a"; cctx.fillRect(6,22,20,6);
+    cctx.fillStyle="#3ff0ff"; cctx.fillRect(8,20,4,4); cctx.fillRect(20,20,4,4);
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const groundY = H-90;
+    const hasDoubleJump = getUpgradeLevel("jumpBootsLevel") >= 1;
+    const player = { x:90, y:groundY-30, w:30, h:30, vy:0, onGround:true, jumps:0 };
+    const GRAV = 1900, JUMP_V = -680;
+    let obstacles = [];
+    let spawnTimer = 1;
+    let speed = 300;
+    let dist_ = 0;
+    let over = false;
+    let started = false;
+    const particles = makeParticleSystem();
+
+    function jump(){
+      if(!started){ started = true; return; }
+      if(player.onGround){
+        player.vy = JUMP_V;
+        player.onGround = false;
+        player.jumps = 1;
+        sound.jump();
+      } else if(hasDoubleJump && player.jumps < 2){
+        player.vy = JUMP_V*0.85;
+        player.jumps = 2;
+        sound.jump();
+      }
+    }
+    function keyHandler(e){ if(e.code==="Space"||e.code==="ArrowUp") jump(); }
+    window.addEventListener("keydown", keyHandler);
+    function onDown(){ jump(); }
+    canvas.addEventListener("mousedown", onDown);
+    canvas.addEventListener("touchstart", onDown);
+
+    function spawnObstacle(){
+      const type = Math.random()<0.7 ? "block" : "hole";
+      if(type==="block"){
+        const h = rand(28,50);
+        obstacles.push({type, x:W+30, y:groundY-h, w:26, h});
+      } else {
+        obstacles.push({type, x:W+30, y:groundY, w:rand(60,100), h:10});
+      }
+    }
+
+    function update(dt){
+      if(!started) return;
+      if(over) return;
+      dist_ += speed*dt;
+      setScore(dist_/10);
+      speed = Math.min(650, 300 + dist_*0.02);
+
+      player.vy += GRAV*dt;
+      player.y += player.vy*dt;
+      if(player.y+player.h >= groundY){
+        player.y = groundY-player.h;
+        player.vy = 0;
+        player.onGround = true;
+        player.jumps = 0;
+      }
+
+      spawnTimer -= dt;
+      if(spawnTimer<=0){ spawnObstacle(); spawnTimer = rand(0.8,1.4)*(300/speed); }
+
+      for(let i=obstacles.length-1;i>=0;i--){
+        const o = obstacles[i];
+        o.x -= speed*dt;
+        if(o.x < -150) { obstacles.splice(i,1); continue; }
+        if(o.type==="block"){
+          if(player.x+player.w>o.x && player.x<o.x+o.w && player.y+player.h>o.y){
+            crash();
+          }
+        } else {
+          if(player.onGround && player.x+player.w*0.5>o.x && player.x+player.w*0.5<o.x+o.w){
+            crash();
+          }
+        }
+      }
+      particles.update(dt);
+    }
+
+    function crash(){
+      if(over) return;
+      over = true;
+      sound.hit(); triggerShake(8,0.3);
+      particles.burst(player.x+player.w/2,player.y+player.h/2,"#3ff0ff",20,{gravity:600});
+      setTimeout(()=>endGame({}), 250);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="#151b30";
+      ctx.fillRect(0,groundY,W,H-groundY);
+      ctx.fillStyle="rgba(63,240,255,0.15)";
+      const off = (dist_*0.5)%40;
+      for(let x=-off;x<W;x+=40) ctx.fillRect(x,groundY,2,H-groundY);
+
+      for(const o of obstacles){
+        if(o.type==="block"){
+          ctx.fillStyle="#ff8a3a";
+          ctx.fillRect(o.x,o.y,o.w,o.h);
+          ctx.fillStyle="#7a3a10";
+          ctx.fillRect(o.x,o.y,o.w,5);
+        } else {
+          ctx.fillStyle="#05070d";
+          ctx.fillRect(o.x,groundY,o.w,H-groundY);
+        }
+      }
+      ctx.fillStyle="#3ff0ff";
+      ctx.fillRect(player.x,player.y,player.w,player.h);
+      ctx.fillStyle="#0a2a30";
+      ctx.fillRect(player.x+player.w-10,player.y+6,4,4);
+      particles.draw(ctx);
+
+      if(!started){
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 18px monospace"; ctx.textAlign="center";
+        ctx.fillText("لمس/کلیک برای شروع و پرش", W/2, H/2);
+        ctx.textAlign="left";
+      }
+    }
+
+    return { update, draw, destroy(){
+      window.removeEventListener("keydown", keyHandler);
+      canvas.removeEventListener("mousedown", onDown);
+      canvas.removeEventListener("touchstart", onDown);
+      obstacles=[]; particles.clear();
+    }};
+  }
+
+  window.__registerGame({
+    id:"block-runner", name:"Block Runner",
+    desc:"از موانع بپر و تا جای ممکن پیش برو.",
+    color:"#ff8a3a", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 10: PIXEL MEMORY
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#a23fff"; cctx.fillRect(4,4,12,24);
+    cctx.fillStyle="#3ff0ff"; cctx.fillRect(16,4,12,24);
+    cctx.fillStyle="#fff"; cctx.font="bold 14px monospace"; cctx.textAlign="center";
+    cctx.fillText("?", 10, 20); cctx.fillText("?", 22, 20);
+    cctx.textAlign="left";
+  }
+
+  const ICONS = ["♦","♥","★","♣","☀","☾","✿","⚑","☂","⚡","♞","☘"];
+
+  function init(api){
+    const { W,H,input,sound,rand,randInt,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const COLS=4, ROWS=4;
+    const pairCount = COLS*ROWS/2;
+    let cards = [];
+    let flipped = [];
+    let matchedCount = 0;
+    let moves = 0;
+    let elapsed = 0;
+    let over = false;
+    let lockInput = false;
+    const cellSize = 90, gap=8;
+    const boardW = COLS*cellSize, boardH = ROWS*cellSize;
+    const startX = (W-boardW)/2, startY = 140;
+    const hintLv = getUpgradeLevel("hintLevel");
+    let hintTimer = 0;
+
+    function reset(){
+      const icons = ICONS.slice(0,pairCount);
+      let deck = icons.concat(icons);
+      for(let i=deck.length-1;i>0;i--){ const j=randInt(0,i); [deck[i],deck[j]]=[deck[j],deck[i]]; }
+      cards = deck.map((sym,i)=>({sym, matched:false, i}));
+      flipped = []; matchedCount = 0; moves = 0; elapsed = 0; over=false; lockInput=false;
+      hintTimer = hintLv>0 ? 1+hintLv : 0;
+      setScore(0);
+    }
+    reset();
+
+    function cellAt(px,py){
+      const c = Math.floor((px-startX)/cellSize);
+      const r = Math.floor((py-startY)/cellSize);
+      if(r<0||r>=ROWS||c<0||c>=COLS) return -1;
+      return r*COLS+c;
+    }
+
+    function update(dt){
+      if(over) return;
+      if(hintTimer>0){ hintTimer -= dt; return; }
+      elapsed += dt;
+      if(input.pointer.justDown && !lockInput){
+        const idx = cellAt(input.pointer.x, input.pointer.y);
+        if(idx>=0){
+          const card = cards[idx];
+          if(!card.matched && !flipped.includes(idx)){
+            flipped.push(idx);
+            sound.click();
+            if(flipped.length===2){
+              moves++;
+              lockInput = true;
+              const [a,b] = flipped;
+              if(cards[a].sym === cards[b].sym){
+                cards[a].matched = true; cards[b].matched = true;
+                matchedCount++;
+                sound.collect();
+                flipped = [];
+                lockInput = false;
+                if(matchedCount===pairCount) finish();
+              } else {
+                setTimeout(()=>{ flipped=[]; lockInput=false; }, 650);
+              }
+            }
+          }
+        }
+        input.pointer.justDown = false;
+      }
+    }
+
+    function finish(){
+      if(over) return;
+      over = true;
+      const score = Math.max(50, Math.floor(2000 - moves*30 - elapsed*8));
+      setScore(score);
+      setTimeout(()=>endGame({win:true}), 250);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="#eaf2ff"; ctx.font="bold 16px monospace"; ctx.textAlign="center";
+      ctx.fillText("حرکت: "+moves+"   زمان: "+Math.floor(elapsed)+"s", W/2, 60);
+      if(hintTimer>0){
+        ctx.fillStyle="#ffe23f"; ctx.font="bold 13px monospace";
+        ctx.fillText("حفظ کن! "+hintTimer.toFixed(1)+"s", W/2, 84);
+      }
+      ctx.textAlign="left";
+
+      for(let idx=0; idx<cards.length; idx++){
+        const r = Math.floor(idx/COLS), c = idx%COLS;
+        const x = startX+c*cellSize+gap/2, y = startY+r*cellSize+gap/2, s=cellSize-gap;
+        const card = cards[idx];
+        const show = card.matched || flipped.includes(idx) || hintTimer>0;
+        ctx.save();
+        if(show){
+          ctx.fillStyle = card.matched ? "#1a3a2a" : "#1a2a4a";
+          api.roundRect(ctx,x,y,s,s,8); ctx.fill();
+          ctx.strokeStyle = card.matched? "#3dff8a" : "#3ff0ff";
+          ctx.lineWidth=2;
+          api.roundRect(ctx,x,y,s,s,8); ctx.stroke();
+          ctx.fillStyle="#eaf2ff"; ctx.font="bold 34px monospace";
+          ctx.textAlign="center"; ctx.textBaseline="middle";
+          ctx.fillText(card.sym, x+s/2, y+s/2+2);
+          ctx.textBaseline="alphabetic";
+        } else {
+          ctx.fillStyle="#232f52";
+          api.roundRect(ctx,x,y,s,s,8); ctx.fill();
+          ctx.strokeStyle="rgba(63,240,255,0.3)"; ctx.lineWidth=2;
+          api.roundRect(ctx,x,y,s,s,8); ctx.stroke();
+          ctx.fillStyle="rgba(63,240,255,0.5)"; ctx.font="bold 22px monospace";
+          ctx.textAlign="center"; ctx.textBaseline="middle";
+          ctx.fillText("?", x+s/2, y+s/2+2);
+          ctx.textBaseline="alphabetic";
+        }
+        ctx.restore();
+      }
+      ctx.textAlign="left";
+    }
+
+    return { update, draw, destroy(){} };
+  }
+
+  window.__registerGame({
+    id:"pixel-memory", name:"Pixel Memory",
+    desc:"جفت‌های مشابه رو با کمترین حرکت پیدا کن.",
+    color:"#a23fff", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 11: LAVA JUMP
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#ff5252"; cctx.fillRect(2,22,28,8);
+    cctx.fillStyle="#8a6a3a"; cctx.fillRect(4,14,8,6); cctx.fillRect(20,10,8,6);
+    cctx.fillStyle="#3ff0ff"; cctx.fillRect(6,8,5,6);
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const GRAV = 1700;
+    const sinkGrace = 1.0 + getUpgradeLevel("gripLevel")*0.3;
+    let platforms = [];
+    let player = { x:0,y:0, w:26,h:26, vy:0, vx:0, onPlat:null };
+    let camX = 0;
+    let over=false, started=false;
+    let maxDist = 0;
+    const particles = makeParticleSystem();
+
+    function makePlatform(x, y){
+      return { x, y, w:rand(55,85), sinking:false, sinkT:0, id:Math.random() };
+    }
+    function reset(){
+      platforms = [];
+      let x = 60;
+      for(let i=0;i<8;i++){
+        platforms.push(makePlatform(x, H-140-rand(-30,30)));
+        x += rand(90,130);
+      }
+      player.x = platforms[0].x + platforms[0].w/2 - player.w/2;
+      player.y = platforms[0].y - player.h;
+      player.vy = 0; player.onPlat = platforms[0];
+      camX = 0; maxDist = 0; over=false; started=false;
+      setScore(0);
+    }
+    reset();
+
+    function jump(){
+      if(!started){ started=true; return; }
+      if(player.onPlat){
+        player.vy = -620;
+        player.vx = 230;
+        player.onPlat = null;
+        sound.jump();
+      }
+    }
+    function onDown(){ jump(); }
+    canvas.addEventListener("mousedown", onDown);
+    canvas.addEventListener("touchstart", onDown);
+    function keyHandler(e){ if(e.code==="Space"||e.code==="ArrowUp") jump(); }
+    window.addEventListener("keydown", keyHandler);
+
+    function ensurePlatforms(){
+      while(platforms[platforms.length-1].x < camX + W + 200){
+        const last = platforms[platforms.length-1];
+        platforms.push(makePlatform(last.x+rand(90,140), H-140-rand(-40,40)));
+      }
+      platforms = platforms.filter(p => p.x > camX-150);
+    }
+
+    function update(dt){
+      if(!started) return;
+      if(over) return;
+      player.vy += GRAV*dt;
+      player.y += player.vy*dt;
+      if(player.vx>0){
+        player.x += player.vx*dt;
+        player.vx *= 0.995;
+      }
+
+      if(!player.onPlat){
+        for(const p of platforms){
+          if(p.sinking) continue;
+          if(player.vy>0 && player.x+player.w>p.x && player.x<p.x+p.w &&
+             player.y+player.h > p.y && player.y+player.h < p.y+20){
+            player.y = p.y-player.h;
+            player.vy = 0; player.vx=0;
+            player.onPlat = p;
+            p.sinking = true;
+            sound.click();
+          }
+        }
+      }
+      if(player.onPlat){
+        player.onPlat.sinkT += dt;
+        player.y = player.onPlat.y - player.h + Math.min(player.onPlat.sinkT*20, 14);
+        if(player.onPlat.sinkT > sinkGrace){
+          player.onPlat = null;
+        }
+      }
+
+      camX = Math.max(camX, player.x - W*0.35);
+      maxDist = Math.max(maxDist, player.x);
+      setScore(maxDist/10);
+
+      if(player.y > H+60){ crash(); }
+      ensurePlatforms();
+      particles.update(dt);
+    }
+
+    function crash(){
+      if(over) return;
+      over = true;
+      sound.hit(); triggerShake(8,0.3);
+      particles.burst(player.x-camX+40,player.y,"#ff5252",20,{gravity:200,up:100});
+      setTimeout(()=>endGame({}), 250);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      ctx.save();
+      ctx.translate(-camX+40, 0);
+
+      ctx.fillStyle="#3a0a0a";
+      ctx.fillRect(camX-40, H-70, W+200, 70);
+      ctx.fillStyle="#ff5252";
+      for(let x=camX-40; x<camX+W+200; x+=20){
+        const wobble = Math.sin((x+Date.now()/200))*4;
+        ctx.fillRect(x, H-70+wobble, 14, 10);
+      }
+
+      for(const p of platforms){
+        ctx.fillStyle = p.sinking ? "#5a4020" : "#8a6a3a";
+        ctx.fillRect(p.x, p.y, p.w, 16);
+        ctx.fillStyle="#3ff0ff";
+        ctx.fillRect(p.x, p.y-4, p.w, 4);
+      }
+
+      ctx.fillStyle="#3ff0ff";
+      ctx.fillRect(player.x, player.y, player.w, player.h);
+      ctx.fillStyle="#0a2a30";
+      ctx.fillRect(player.x+player.w-8, player.y+6, 4,4);
+
+      ctx.restore();
+      particles.draw(ctx);
+
+      if(!started){
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 18px monospace"; ctx.textAlign="center";
+        ctx.fillText("لمس کن تا بپری روی بلوک بعدی", W/2, H/2);
+        ctx.textAlign="left";
+      }
+    }
+
+    return { update, draw, destroy(){
+      canvas.removeEventListener("mousedown", onDown);
+      canvas.removeEventListener("touchstart", onDown);
+      window.removeEventListener("keydown", keyHandler);
+      particles.clear();
+    }};
+  }
+
+  window.__registerGame({
+    id:"lava-jump", name:"Lava Jump",
+    desc:"از روی بلوک‌های شناور روی گدازه بپر.",
+    color:"#ff5252", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 12: SKELETON ARCHERY
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.strokeStyle="#c9b998"; cctx.lineWidth=2;
+    cctx.beginPath(); cctx.arc(10,16,10,0.3*Math.PI,1.7*Math.PI); cctx.stroke();
+    cctx.strokeStyle="#ff8a3a";
+    cctx.beginPath(); cctx.moveTo(8,16); cctx.lineTo(28,16); cctx.stroke();
+    cctx.fillStyle="#ff8a3a"; cctx.beginPath(); cctx.moveTo(28,16); cctx.lineTo(22,12); cctx.lineTo(22,20); cctx.closePath(); cctx.fill();
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,randInt,clamp,dist,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    let targets = [];
+    let arrows = [];
+    let arrowsLeft = 15 + getUpgradeLevel("quiverLevel")*5;
+    let over = false;
+    const particles = makeParticleSystem();
+    const bowX = W/2, bowY = H-40;
+    let spawnTimer = 0;
+
+    function spawnTarget(){
+      const row = randInt(0,3);
+      const y = 140 + row*90;
+      const fromLeft = Math.random()<0.5;
+      const speed = rand(60,130) + row*15;
+      targets.push({
+        x: fromLeft? -30 : W+30, y, r:24,
+        vx: fromLeft? speed : -speed, dead:false
+      });
+    }
+
+    function update(dt){
+      if(over) return;
+      spawnTimer -= dt;
+      if(spawnTimer<=0 && targets.length<5){ spawnTarget(); spawnTimer = rand(0.6,1.1); }
+
+      for(let i=targets.length-1;i>=0;i--){
+        const t = targets[i];
+        t.x += t.vx*dt;
+        if(t.x < -60 || t.x > W+60) targets.splice(i,1);
+      }
+
+      for(let i=arrows.length-1;i>=0;i--){
+        const a = arrows[i];
+        a.x += a.vx*dt; a.y += a.vy*dt;
+        a.vy += 500*dt;
+        if(a.y>H+40 || a.x<-40 || a.x>W+40){ arrows.splice(i,1); continue; }
+        for(let j=targets.length-1;j>=0;j--){
+          const t = targets[j];
+          if(dist(a.x,a.y,t.x,t.y) < t.r){
+            const headshot = dist(a.x,a.y,t.x,t.y-t.r*0.5) < t.r*0.5;
+            const pts = headshot? 30 : 15;
+            addScore(pts);
+            sound.collect();
+            particles.burst(t.x,t.y,"#c9b998",14,{gravity:400});
+            targets.splice(j,1);
+            arrows.splice(i,1);
+            break;
+          }
+        }
+      }
+
+      if(input.pointer.justDown && arrowsLeft>0){
+        const ang = Math.atan2(input.pointer.y-bowY, input.pointer.x-bowX);
+        const spd = 620;
+        arrows.push({x:bowX,y:bowY,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd});
+        arrowsLeft--;
+        sound.jump();
+        input.pointer.justDown = false;
+        if(arrowsLeft<=0){
+          setTimeout(()=>{ if(arrows.length===0) finish(); }, 1500);
+        }
+      }
+      particles.update(dt);
+
+      if(arrowsLeft<=0 && arrows.length===0 && !over){ finish(); }
+    }
+
+    function finish(){
+      if(over) return;
+      over = true;
+      setTimeout(()=>endGame({}), 200);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="#eaf2ff"; ctx.font="bold 16px monospace"; ctx.textAlign="center";
+      ctx.fillText("تیر باقی‌مانده: "+arrowsLeft, W/2, 40);
+      ctx.textAlign="left";
+
+      for(const t of targets){
+        ctx.fillStyle="#c9b998";
+        ctx.beginPath(); ctx.arc(t.x,t.y,t.r,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle="#7a1a1a";
+        ctx.beginPath(); ctx.arc(t.x,t.y,t.r*0.55,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle="#eaf2ff";
+        ctx.beginPath(); ctx.arc(t.x,t.y,t.r*0.22,0,Math.PI*2); ctx.fill();
+      }
+      for(const a of arrows){
+        ctx.save();
+        ctx.translate(a.x,a.y);
+        ctx.rotate(Math.atan2(a.vy,a.vx));
+        ctx.fillStyle="#ff8a3a";
+        ctx.fillRect(-14,-2,28,4);
+        ctx.beginPath(); ctx.moveTo(14,-5); ctx.lineTo(22,0); ctx.lineTo(14,5); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      ctx.fillStyle="#8a6a3a";
+      ctx.beginPath(); ctx.arc(bowX,bowY,18,0.3*Math.PI,1.7*Math.PI); ctx.stroke();
+      ctx.strokeStyle="#8a6a3a"; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(bowX,bowY,18,0.3*Math.PI,1.7*Math.PI); ctx.stroke();
+      particles.draw(ctx);
+
+      ctx.fillStyle="rgba(234,242,255,0.5)"; ctx.font="12px monospace"; ctx.textAlign="center";
+      ctx.fillText("لمس کن تا شلیک کنی", W/2, H-16);
+      ctx.textAlign="left";
+    }
+
+    return { update, draw, destroy(){ targets=[]; arrows=[]; particles.clear(); } };
+  }
+
+  window.__registerGame({
+    id:"skeleton-archery", name:"Skeleton Archery",
+    desc:"با تیر و کمان اهداف متحرک رو بزن.",
+    color:"#c9b998", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 13: PIXEL COIN CATCHER
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#ffd23a";
+    cctx.beginPath(); cctx.arc(16,14,11,0,Math.PI*2); cctx.fill();
+    cctx.fillStyle="#a08010";
+    cctx.beginPath(); cctx.arc(16,14,7,0,Math.PI*2); cctx.fill();
+    cctx.fillStyle="#3ff0ff"; cctx.fillRect(6,24,20,5);
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const basket = { x:W/2, w:76+getUpgradeLevel("basketLevel")*20, h:18, y:H-50 };
+    let items = [];
+    let spawnTimer = 0;
+    let elapsed = 0;
+    let lives = 3;
+    let over = false;
+    const particles = makeParticleSystem();
+
+    function spawnItem(){
+      const bad = Math.random()<0.25;
+      items.push({
+        x: rand(30,W-30), y:-20,
+        vy: rand(140,220) + Math.min(elapsed*4,180),
+        bad, r: bad?16:14, rot:0
+      });
+    }
+
+    function update(dt){
+      if(over) return;
+      elapsed += dt;
+      setScore(elapsed*5 + coinsCollected*10 - 0);
+      spawnTimer -= dt;
+      const rate = Math.max(0.35, 0.9 - elapsed*0.01);
+      if(spawnTimer<=0){ spawnItem(); spawnTimer = rate; }
+
+      let dx=0;
+      if(input.keys["ArrowLeft"]||input.keys["KeyA"]) dx-=1;
+      if(input.keys["ArrowRight"]||input.keys["KeyD"]) dx+=1;
+      if(input.pointer.down){
+        const ddx = input.pointer.x - basket.x;
+        if(Math.abs(ddx)>5) dx = clamp(ddx/40,-1,1);
+      }
+      basket.x = clamp(basket.x + dx*320*dt, basket.w/2, W-basket.w/2);
+
+      for(let i=items.length-1;i>=0;i--){
+        const it = items[i];
+        it.y += it.vy*dt;
+        it.rot += dt*4;
+        if(it.y - it.r > basket.y - basket.h/2 && it.y - it.r < basket.y + basket.h/2 &&
+           it.x > basket.x - basket.w/2 && it.x < basket.x + basket.w/2){
+          if(it.bad){
+            lives--;
+            sound.hit(); triggerShake(5,0.15);
+            particles.burst(it.x,it.y,"#ff5252",10,{gravity:400});
+            if(lives<=0) crash();
+          } else {
+            coinsCollected++;
+            addScore(10);
+            sound.collect();
+            particles.burst(it.x,it.y,"#ffd23a",10,{gravity:300});
+          }
+          items.splice(i,1);
+          continue;
+        }
+        if(it.y > H+30) items.splice(i,1);
+      }
+      particles.update(dt);
+    }
+    let coinsCollected = 0;
+
+    function crash(){
+      if(over) return;
+      over = true;
+      setTimeout(()=>endGame({}), 250);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      for(const it of items){
+        ctx.save();
+        ctx.translate(it.x,it.y);
+        ctx.rotate(it.rot);
+        if(it.bad){
+          ctx.fillStyle="#1a1a1a";
+          ctx.beginPath(); ctx.arc(0,0,it.r,0,Math.PI*2); ctx.fill();
+          ctx.strokeStyle="#ff5252"; ctx.lineWidth=3;
+          ctx.beginPath(); ctx.moveTo(-8,-8); ctx.lineTo(8,8); ctx.moveTo(8,-8); ctx.lineTo(-8,8); ctx.stroke();
+        } else {
+          ctx.fillStyle="#ffd23a";
+          ctx.beginPath(); ctx.arc(0,0,it.r,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle="#a08010";
+          ctx.beginPath(); ctx.arc(0,0,it.r*0.6,0,Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+      }
+      ctx.fillStyle="#3ff0ff";
+      api.roundRect(ctx, basket.x-basket.w/2, basket.y-basket.h/2, basket.w, basket.h, 6);
+      ctx.fill();
+      particles.draw(ctx);
+      ctx.fillStyle="#ff3fb0"; ctx.font="bold 16px monospace";
+      let hpStr=""; for(let i=0;i<lives;i++) hpStr+="❤ ";
+      ctx.fillText(hpStr, 14, 30);
+    }
+
+    return { update, draw, destroy(){ items=[]; particles.clear(); } };
+  }
+
+  window.__registerGame({
+    id:"coin-catcher", name:"Pixel Coin Catcher",
+    desc:"سکه‌ها رو با سبد بگیر و از بمب دوری کن.",
+    color:"#ffd23a", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 14: BLOCK BREAKER
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#ff5252"; cctx.fillRect(4,4,10,6);
+    cctx.fillStyle="#ffd23a"; cctx.fillRect(16,4,12,6);
+    cctx.fillStyle="#3dff8a"; cctx.fillRect(4,12,10,6);
+    cctx.fillStyle="#3ff0ff"; cctx.beginPath(); cctx.arc(20,20,4,0,Math.PI*2); cctx.fill();
+    cctx.fillStyle="#eaf2ff"; cctx.fillRect(8,26,16,4);
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,triggerShake,makeParticleSystem,addScore,endGame,setScore } = api;
+    const paddle = { w:90+getUpgradeLevel("paddleLevel")*20, h:14, y:H-50, x:W/2 };
+    const BALL_R = 8;
+    let balls = [];
+    let bricks = [];
+    let lives = 3;
+    let level = 1;
+    let over = false;
+    let started = false;
+    const particles = makeParticleSystem();
+    const BRICK_COLORS = ["#ff5252","#ff8a3a","#ffd23a","#3dff8a","#3ff0ff","#a23fff"];
+
+    function buildBricks(){
+      bricks = [];
+      const rows = Math.min(4+level, 8);
+      const cols = 8;
+      const bw = (W-40)/cols, bh = 22, top = 90;
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          if(Math.random()<0.05 && level>1) continue;
+          bricks.push({
+            x:20+c*bw, y: top+r*bh, w:bw-4, h:bh-4,
+            hp: 1 + (r<Math.floor(rows/3)?1:0),
+            color: BRICK_COLORS[r%BRICK_COLORS.length]
+          });
+        }
+      }
+    }
+    function newBall(){
+      return { x:paddle.x, y:paddle.y-BALL_R-2, vx: rand(-140,140), vy:-380, stuck:true };
+    }
+    function reset(){
+      buildBricks();
+      balls = [newBall()];
+      lives = 3; over = false; started = false;
+      setScore(0);
+    }
+    reset();
+
+    function launch(){
+      started = true;
+      for(const b of balls){ if(b.stuck) b.stuck = false; }
+    }
+    function onDown(){ if(!started) launch(); }
+    canvas.addEventListener("mousedown", onDown);
+    canvas.addEventListener("touchstart", onDown, {passive:false});
+
+    function update(dt){
+      // paddle follows pointer / keys
+      let dx=0;
+      if(input.keys["ArrowLeft"]||input.keys["KeyA"]) dx-=1;
+      if(input.keys["ArrowRight"]||input.keys["KeyD"]) dx+=1;
+      if(input.pointer.x){
+        const target = input.pointer.x;
+        paddle.x = clamp(target, paddle.w/2, W-paddle.w/2);
+      } else {
+        paddle.x = clamp(paddle.x+dx*380*dt, paddle.w/2, W-paddle.w/2);
+      }
+
+      if(over) return;
+      for(const b of balls){
+        if(b.stuck){ b.x = paddle.x; b.y = paddle.y-BALL_R-2; continue; }
+        b.x += b.vx*dt; b.y += b.vy*dt;
+        if(b.x-BALL_R<0){ b.x=BALL_R; b.vx*=-1; }
+        if(b.x+BALL_R>W){ b.x=W-BALL_R; b.vx*=-1; }
+        if(b.y-BALL_R<0){ b.y=BALL_R; b.vy*=-1; }
+        if(b.y+BALL_R>paddle.y-paddle.h/2 && b.y-BALL_R<paddle.y+paddle.h/2 &&
+           b.x>paddle.x-paddle.w/2 && b.x<paddle.x+paddle.w/2 && b.vy>0){
+          const hitPos = (b.x-paddle.x)/(paddle.w/2);
+          b.vx = hitPos*300;
+          b.vy = -Math.abs(b.vy);
+          sound.click();
+        }
+        for(let i=bricks.length-1;i>=0;i--){
+          const br = bricks[i];
+          if(b.x+BALL_R>br.x && b.x-BALL_R<br.x+br.w && b.y+BALL_R>br.y && b.y-BALL_R<br.y+br.h){
+            br.hp--;
+            b.vy *= -1;
+            particles.burst(br.x+br.w/2,br.y+br.h/2,br.color,10,{gravity:400});
+            if(br.hp<=0){
+              bricks.splice(i,1);
+              addScore(10);
+              sound.collect();
+            } else {
+              sound.hit();
+            }
+            break;
+          }
+        }
+      }
+      balls = balls.filter(b=>{
+        if(b.y-BALL_R>H){ return false; }
+        return true;
+      });
+      if(balls.length===0){
+        lives--;
+        triggerShake(6,0.2);
+        if(lives<=0){ crash(); }
+        else { balls = [newBall()]; started=false; }
+      }
+      if(bricks.length===0 && !over){
+        level++;
+        addScore(50);
+        buildBricks();
+        balls = [newBall()];
+        started = false;
+      }
+      particles.update(dt);
+    }
+
+    function crash(){
+      if(over) return;
+      over = true;
+      setTimeout(()=>endGame({}), 250);
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle="#eaf2ff"; ctx.font="bold 14px monospace"; ctx.textAlign="center";
+      ctx.fillText("LEVEL "+level, W/2, 40);
+      ctx.textAlign="left";
+
+      for(const br of bricks){
+        ctx.fillStyle = br.color;
+        ctx.fillRect(br.x,br.y,br.w,br.h);
+        if(br.hp>1){
+          ctx.strokeStyle="rgba(255,255,255,0.6)"; ctx.lineWidth=2;
+          ctx.strokeRect(br.x+2,br.y+2,br.w-4,br.h-4);
+        }
+      }
+      ctx.fillStyle="#3ff0ff";
+      api.roundRect(ctx,paddle.x-paddle.w/2,paddle.y-paddle.h/2,paddle.w,paddle.h,5);
+      ctx.fill();
+      for(const b of balls){
+        ctx.fillStyle="#ffe23f";
+        ctx.beginPath(); ctx.arc(b.x,b.y,BALL_R,0,Math.PI*2); ctx.fill();
+      }
+      particles.draw(ctx);
+
+      ctx.fillStyle="#ff3fb0"; ctx.font="bold 16px monospace";
+      let hpStr=""; for(let i=0;i<lives;i++) hpStr+="❤ ";
+      ctx.fillText(hpStr, 14, H-16);
+
+      if(!started){
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 16px monospace"; ctx.textAlign="center";
+        ctx.fillText("لمس/کلیک برای پرتاب توپ", W/2, H/2+80);
+        ctx.textAlign="left";
+      }
+    }
+
+    return { update, draw, destroy(){
+      canvas.removeEventListener("mousedown", onDown);
+      canvas.removeEventListener("touchstart", onDown);
+      bricks=[]; balls=[]; particles.clear();
+    }};
+  }
+
+  window.__registerGame({
+    id:"block-breaker", name:"Block Breaker",
+    desc:"توپ رو با پدال کنترل کن و بلوک‌ها رو بشکن.",
+    color:"#3ff0ff", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 15: PIXEL CAR RACE (VS ROBOT OR 2-PLAYER)
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#ff5252"; cctx.fillRect(6,8,10,18);
+    cctx.fillStyle="#3ff0ff"; cctx.fillRect(16,4,10,18);
+    cctx.fillStyle="#1a1a1a";
+    cctx.fillRect(6,24,4,4); cctx.fillRect(12,24,4,4);
+    cctx.fillRect(16,20,4,4); cctx.fillRect(22,20,4,4);
+    cctx.fillStyle="#eaf2ff"; cctx.fillRect(8,10,6,4); cctx.fillRect(18,6,6,4);
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,randInt,clamp,triggerShake,makeParticleSystem,addScore,endGame,setScore,roundRect,net } = api;
+    const particles = makeParticleSystem();
+
+    // ---- layout ----
+    const pad = 14;
+    const colW = (W - pad*3)/2;
+    const col = [ {x0:pad}, {x0:pad*2+colW} ];
+    const carSizeLv = getUpgradeLevel("carSizeLevel");
+    const carY = H-120, carW = 34-carSizeLv*4, carH = 46-carSizeLv*5;
+    const raceTurboLv = getUpgradeLevel("raceTurboLevel");
+    const GOAL = 420;
+
+    let phase = "select"; // select -> racing -> finished
+    let mode = null; // "robot" | "2p" | "online"
+    let elapsed = 0;
+    let trackSpeed = 220;
+    let spawnTimer = 0.9;
+
+    // ---- online netplay ----
+    let clientTargetX = pad*2+colW+colW/2;
+    let remoteTargetX = pad*2+colW+colW/2;
+    let netSendTimer = 0;
+    let netFinishTimer = 0, netFinishStarted = false;
+    net.setHandler(data=>{
+      if(data.type==="selectOnline"){ if(mode!=="online") selectMode("online"); }
+      else if(data.type==="input"){ remoteTargetX = data.targetX; }
+      else if(data.type==="state"){
+        racers[0].x=data.r0.x; racers[0].alive=data.r0.alive; racers[0].distance=data.r0.distance;
+        racers[1].x=data.r1.x; racers[1].alive=data.r1.alive; racers[1].distance=data.r1.distance;
+        obstacles = data.obstacles;
+        elapsed = data.elapsed; trackSpeed = data.trackSpeed;
+        phase = data.phase; winnerIdx = data.winnerIdx;
+        setScore(Math.floor(racers[net.isHost?0:1].distance));
+      }
+    });
+
+    const racers = [
+      { label:"شما", color:"#3ff0ff", x: pad+colW/2, targetX: pad+colW/2, alive:true, distance:0, colIdx:0 },
+      { label:"ربات", color:"#ff8a3a", x: pad*2+colW+colW/2, targetX: pad*2+colW+colW/2, alive:true, distance:0, colIdx:1 }
+    ];
+    let obstacles = [[],[]]; // per column
+    let winnerIdx = -1;
+    let finishTimer = 0;
+    let aiTimer = 0;
+    let aiDir = 0;
+
+    // raw touch tracking (supports simultaneous multi-touch for 2P)
+    let touches = [];
+    function updateTouchesFromEvent(e){
+      touches = [];
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W/rect.width, scaleY = H/rect.height;
+      if(e.touches){
+        for(let i=0;i<e.touches.length;i++){
+          const t = e.touches[i];
+          touches.push({ x:(t.clientX-rect.left)*scaleX, y:(t.clientY-rect.top)*scaleY });
+        }
+      }
+    }
+    function touchHandler(e){
+      e.preventDefault();
+      updateTouchesFromEvent(e);
+    }
+    canvas.addEventListener("touchstart", touchHandler, {passive:false});
+    canvas.addEventListener("touchmove", touchHandler, {passive:false});
+    canvas.addEventListener("touchend", touchHandler, {passive:false});
+
+    let mouseDown = false, mouseX = 0;
+    function onMouseDown(e){ mouseDown = true; }
+    function onMouseUp(){ mouseDown = false; }
+    function onMouseMove(e){
+      const rect = canvas.getBoundingClientRect();
+      mouseX = (e.clientX-rect.left) * (W/rect.width);
+    }
+    canvas.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
+    canvas.addEventListener("mousemove", onMouseMove);
+
+    function selectMode(m){
+      mode = m;
+      phase = "racing";
+      sound.click();
+      if(m==="online"){
+        racers[0].label = net.isHost ? "شما" : "دوست";
+        racers[1].label = net.isHost ? "دوست" : "شما";
+        clientTargetX = col[1].x0+colW/2;
+        remoteTargetX = col[1].x0+colW/2;
+      }
+    }
+
+    function update(dt){
+      if(phase === "select"){
+        if(input.pointer.justDown){
+          const p = {x:input.pointer.x, y:input.pointer.y};
+          if(p.y > H*0.42 && p.y < H*0.42+90){
+            if(p.x < W/2) selectMode("robot"); else selectMode("2p");
+          } else if(net.connected && p.y > H*0.42+100 && p.y < H*0.42+100+54){
+            selectMode("online"); net.send({type:"selectOnline"});
+          }
+          input.pointer.justDown = false;
+        }
+        return;
+      }
+      if(phase === "finished"){
+        if(mode==="online" && !net.isHost){
+          if(!netFinishStarted){ netFinishStarted=true; netFinishTimer=1.2; }
+          netFinishTimer -= dt;
+          if(netFinishTimer<=0){ netFinishTimer=999; setTimeout(()=>endGame({ win: winnerIdx===1 }), 50); }
+          return;
+        }
+        finishTimer -= dt;
+        if(finishTimer<=0){
+          finishTimer = 999;
+          const score = Math.max(10, Math.floor(racers[0].distance/2));
+          setScore(score);
+          setTimeout(()=>endGame({ win: winnerIdx===0 }), 50);
+        }
+        return;
+      }
+
+      if(mode==="online" && !net.isHost){
+        // client: send own steering intent, apply host snapshot, skip local physics
+        let k=0;
+        if(input.keys["KeyA"]||input.keys["ArrowLeft"]) k-=1;
+        if(input.keys["KeyD"]||input.keys["ArrowRight"]) k+=1;
+        if(k!==0) clientTargetX = clamp(clientTargetX + k*340*dt, col[1].x0+carW/2, col[1].x0+colW-carW/2);
+        for(const t of touches) clientTargetX = clamp(t.x, col[1].x0+carW/2, col[1].x0+colW-carW/2);
+        if(mouseDown) clientTargetX = clamp(mouseX, col[1].x0+carW/2, col[1].x0+colW-carW/2);
+        netSendTimer -= dt;
+        if(netSendTimer<=0){ netSendTimer=0.033; net.send({type:"input", targetX:clientTargetX}); }
+        particles.update(dt);
+        return;
+      }
+
+      elapsed += dt;
+      trackSpeed = Math.min(430, 220 + elapsed*6);
+      setScore(Math.floor(racers[0].distance));
+
+      // --- input: determine target x for racer 0 (and racer1 if 2p) ---
+      const c0 = col[0], c1 = col[1];
+      // keyboard
+      let k0 = 0, k1 = 0;
+      if(input.keys["KeyA"]) k0 -= 1;
+      if(input.keys["KeyD"]) k0 += 1;
+      if(mode==="2p"){
+        if(input.keys["ArrowLeft"]) k1 -= 1;
+        if(input.keys["ArrowRight"]) k1 += 1;
+      } else if(mode!=="online"){
+        if(input.keys["ArrowLeft"]) k0 -= 1;
+        if(input.keys["ArrowRight"]) k0 += 1;
+      }
+      if(k0!==0) racers[0].targetX = clamp(racers[0].targetX + k0*340*dt, c0.x0+carW/2, c0.x0+colW-carW/2);
+      if(mode==="2p" && k1!==0) racers[1].targetX = clamp(racers[1].targetX + k1*340*dt, c1.x0+carW/2, c1.x0+colW-carW/2);
+      if(mode==="online") racers[1].targetX = remoteTargetX;
+
+      // touch (multi-touch aware)
+      for(const t of touches){
+        if(mode==="2p"){
+          if(t.x < W/2) racers[0].targetX = clamp(t.x, c0.x0+carW/2, c0.x0+colW-carW/2);
+          else racers[1].targetX = clamp(t.x, c1.x0+carW/2, c1.x0+colW-carW/2);
+        } else {
+          racers[0].targetX = clamp(t.x, c0.x0+carW/2, c0.x0+colW-carW/2);
+        }
+      }
+      // mouse (single pointer, always controls racer 0 / left col)
+      if(mouseDown){
+        racers[0].targetX = clamp(mouseX, c0.x0+carW/2, c0.x0+colW-carW/2);
+      }
+
+      // robot AI
+      if(mode==="robot"){
+        aiTimer -= dt;
+        if(aiTimer<=0){
+          aiTimer = 0.18;
+          const bot = racers[1];
+          let danger = null;
+          for(const o of obstacles[1]){
+            if(o.y < carY && o.y > carY-230){ danger = o; break; }
+          }
+          if(danger && Math.random() < 0.82){
+            const away = danger.x < bot.x ? 1 : -1;
+            bot.targetX = clamp(bot.x + away*70, c1.x0+carW/2, c1.x0+colW-carW/2);
+          } else if(Math.random()<0.3){
+            bot.targetX = clamp(bot.targetX + rand(-40,40), c1.x0+carW/2, c1.x0+colW-carW/2);
+          }
+        }
+      }
+
+      // move cars toward target
+      for(const r of racers){
+        if(!r.alive) continue;
+        r.x = lerpTo(r.x, r.targetX, 10*dt);
+        r.y_ = carY;
+        const turboBonus = (mode==="robot" && r.colIdx===0) ? raceTurboLv*0.006 : 0;
+        if(r.alive) r.distance += trackSpeed*dt*(0.05+turboBonus);
+      }
+
+      // spawn obstacles (shared timing, independent per-lane position)
+      spawnTimer -= dt;
+      if(spawnTimer<=0){
+        spawnTimer = Math.max(0.5, 1.0 - elapsed*0.01);
+        for(let ci=0; ci<2; ci++){
+          if(Math.random()<0.85){
+            const cc = col[ci];
+            obstacles[ci].push({ x: rand(cc.x0+20, cc.x0+colW-20), y:-30, w:26, h:26 });
+          }
+        }
+      }
+      for(let ci=0; ci<2; ci++){
+        const list = obstacles[ci];
+        for(let i=list.length-1;i>=0;i--){
+          const o = list[i];
+          o.y += trackSpeed*dt;
+          if(o.y > H+40){ list.splice(i,1); continue; }
+          const r = racers[ci];
+          if(r.alive && Math.abs(o.y-carY) < (carH+o.h)/2*0.75 && Math.abs(o.x-r.x) < (carW+o.w)/2*0.7){
+            r.alive = false;
+            sound.hit(); triggerShake(7,0.25);
+            particles.burst(r.x, carY, r.color, 22, {gravity:400});
+            list.splice(i,1);
+          }
+        }
+      }
+
+      // win checks
+      if(racers[0].distance >= GOAL && racers[0].alive){ finish(0); }
+      else if(racers[1].distance >= GOAL && racers[1].alive){ finish(1); }
+      else if(!racers[0].alive && racers[1].alive){ finish(1); }
+      else if(!racers[1].alive && racers[0].alive){ finish(0); }
+      else if(!racers[0].alive && !racers[1].alive){ finish(-1); }
+
+      particles.update(dt);
+
+      if(mode==="online" && net.isHost){
+        netSendTimer -= dt;
+        if(netSendTimer<=0){
+          netSendTimer = 0.033;
+          net.send({type:"state",
+            r0:{x:racers[0].x, alive:racers[0].alive, distance:racers[0].distance},
+            r1:{x:racers[1].x, alive:racers[1].alive, distance:racers[1].distance},
+            obstacles, phase, winnerIdx, elapsed, trackSpeed});
+        }
+      }
+    }
+
+    function lerpTo(a,b,t){ return a + (b-a)*Math.min(1,t); }
+
+    function finish(idx){
+      if(phase==="finished") return;
+      phase = "finished";
+      winnerIdx = idx;
+      finishTimer = 1.2;
+      if(idx===0) sound.win();
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+
+      if(phase === "select"){
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 22px monospace"; ctx.textAlign="center";
+        ctx.fillText("🏁 PIXEL CAR RACE", W/2, H*0.28);
+        ctx.font="13px monospace"; ctx.fillStyle="#8ea0c8";
+        ctx.fillText("یک حالت رو انتخاب کن", W/2, H*0.28+30);
+
+        ctx.fillStyle="#1a2340";
+        roundRect(ctx, 20, H*0.42, W/2-30, 90, 10); ctx.fill();
+        roundRect(ctx, W/2+10, H*0.42, W/2-30, 90, 10); ctx.fill();
+        ctx.strokeStyle="#3ff0ff"; ctx.lineWidth=2;
+        roundRect(ctx, 20, H*0.42, W/2-30, 90, 10); ctx.stroke();
+        roundRect(ctx, W/2+10, H*0.42, W/2-30, 90, 10); ctx.stroke();
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 15px monospace";
+        ctx.fillText("🤖 مقابل ربات", W/4+5, H*0.42+40);
+        ctx.fillText("👥 دو نفره", W*0.75+5, H*0.42+40);
+        ctx.font="10px monospace"; ctx.fillStyle="#8ea0c8";
+        ctx.fillText("لمس/موس یا A-D", W/4+5, H*0.42+64);
+        ctx.fillText("P1: A-D | P2: ◀▶", W*0.75+5, H*0.42+64);
+        ctx.textAlign="left";
+        if(net.connected){
+          const y3 = H*0.42+100;
+          ctx.fillStyle="#1a2340"; roundRect(ctx,20,y3,W-40,54,10); ctx.fill();
+          ctx.strokeStyle="#3dff8a"; ctx.lineWidth=2; roundRect(ctx,20,y3,W-40,54,10); ctx.stroke();
+          ctx.fillStyle="#3dff8a"; ctx.font="bold 15px monospace"; ctx.textAlign="center";
+          ctx.fillText("🌐 دو نفره آنلاین (با دوستت)", W/2, y3+33);
+          ctx.textAlign="left";
+        }
+        return;
+      }
+
+      // divider
+      ctx.strokeStyle="rgba(63,240,255,0.15)"; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(W/2,0); ctx.lineTo(W/2,H); ctx.stroke();
+
+      // lane dashes
+      for(let ci=0; ci<2; ci++){
+        const cc = col[ci];
+        ctx.fillStyle="rgba(255,255,255,0.04)";
+        for(let y=(-((elapsed*trackSpeed*0.3)%40)); y<H; y+=40){
+          ctx.fillRect(cc.x0+colW/2-2, y, 4, 20);
+        }
+      }
+
+      // progress bars
+      for(let i=0;i<2;i++){
+        const barX = i===0? pad : W/2+pad/2, barW = W/2-pad*1.5;
+        ctx.fillStyle="#1a2340"; roundRect(ctx,barX,12,barW,10,5); ctx.fill();
+        ctx.fillStyle = racers[i].color;
+        roundRect(ctx,barX,12,barW*clamp(racers[i].distance/GOAL,0,1),10,5); ctx.fill();
+        ctx.fillStyle="#eaf2ff"; ctx.font="10px monospace"; ctx.textAlign = i===0?"left":"right";
+        ctx.fillText(racers[i].label, i===0?barX:barX+barW, 34);
+        ctx.textAlign="left";
+      }
+
+      // obstacles
+      for(let ci=0; ci<2; ci++){
+        ctx.fillStyle="#8a6a3a";
+        for(const o of obstacles[ci]){
+          ctx.fillRect(o.x-o.w/2,o.y-o.h/2,o.w,o.h);
+          ctx.strokeStyle="#5a4020"; ctx.lineWidth=2;
+          ctx.strokeRect(o.x-o.w/2,o.y-o.h/2,o.w,o.h);
+        }
+      }
+
+      // cars
+      for(const r of racers){
+        if(!r.alive) continue;
+        ctx.fillStyle = r.color;
+        roundRect(ctx, r.x-carW/2, carY-carH/2, carW, carH, 6); ctx.fill();
+        ctx.fillStyle = "#0a1a20";
+        ctx.fillRect(r.x-carW/2+4, carY-carH/2+6, carW-8, 10);
+        ctx.fillStyle = "#1a1a1a";
+        ctx.fillRect(r.x-carW/2-2, carY-carH/2+4, 4,10);
+        ctx.fillRect(r.x+carW/2-2, carY-carH/2+4, 4,10);
+        ctx.fillRect(r.x-carW/2-2, carY+carH/2-14, 4,10);
+        ctx.fillRect(r.x+carW/2-2, carY+carH/2-14, 4,10);
+      }
+
+      particles.draw(ctx);
+
+      if(phase === "finished"){
+        ctx.fillStyle="rgba(3,5,12,0.55)"; ctx.fillRect(0,0,W,H);
+        ctx.fillStyle = winnerIdx===0 ? "#3dff8a" : "#ff3fb0";
+        ctx.font="bold 26px monospace"; ctx.textAlign="center";
+        const msg = winnerIdx===-1 ? "برابر!" : (racers[winnerIdx].label+" برد!");
+        ctx.fillText(msg, W/2, H/2);
+        ctx.textAlign="left";
+      }
+    }
+
+    return { update, draw, destroy(){
+      canvas.removeEventListener("touchstart", touchHandler);
+      canvas.removeEventListener("touchmove", touchHandler);
+      canvas.removeEventListener("touchend", touchHandler);
+      canvas.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mouseup", onMouseUp);
+      canvas.removeEventListener("mousemove", onMouseMove);
+      obstacles=[[],[]]; particles.clear();
+    }};
+  }
+
+  window.__registerGame({
+    id:"car-race", name:"Pixel Car Race",
+    desc:"مسابقه با ربات یا یک دوست — اول برس به خط پایان.",
+    color:"#ff8a3a", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 16: COOKING DUEL (VS ROBOT OR 2-PLAYER) — WALK & DELIVER
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#eaf2ff"; cctx.beginPath(); cctx.arc(16,18,11,0,Math.PI*2); cctx.fill();
+    cctx.fillStyle="#ff8a3a"; cctx.fillRect(10,6,12,5);
+    cctx.fillStyle="#3dff8a"; cctx.beginPath(); cctx.arc(12,16,3,0,Math.PI*2); cctx.fill();
+    cctx.fillStyle="#ff5252"; cctx.beginPath(); cctx.arc(19,19,3,0,Math.PI*2); cctx.fill();
+  }
+
+  const INGREDIENTS = [
+    {sym:"🥕", name:"هویج"},
+    {sym:"🍅", name:"گوجه"},
+    {sym:"🧀", name:"پنیر"},
+    {sym:"🥩", name:"گوشت"},
+    {sym:"🥔", name:"سیب‌زمینی"},
+    {sym:"🍄", name:"قارچ"},
+    {sym:"🧅", name:"پیاز"},
+    {sym:"🫑", name:"فلفل"},
+    {sym:"🥚", name:"تخم‌مرغ"},
+    {sym:"🌽", name:"ذرت"},
+    {sym:"🍞", name:"نان"},
+    {sym:"🥦", name:"کلم بروکلی"}
+  ];
+
+  function shuffled(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+    return a;
+  }
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,dist,triggerShake,makeParticleSystem,addScore,endGame,setScore,roundRect,net } = api;
+    const particles = makeParticleSystem();
+
+    let phase = "select"; // select -> playing -> finished
+    let mode = null; // "robot" | "2p" | "online"
+    let remoteDX = 0, remoteDY = 0;
+    let netSendTimer = 0;
+    let netFinishTimer = 0, netFinishStarted = false;
+    let winnerIdx = -1;
+    let finishTimer = 0;
+    let elapsed = 0;
+
+    // --- kitchen layout ---
+    const KITCHEN_TOP = 100, KITCHEN_BOTTOM = H-30;
+    const table1 = { x: 30, y: 40, w: 110, h: 56, color:"#3ff0ff" };
+    const table2 = { x: W-140, y: 40, w: 110, h: 56, color:"#ff8a3a" };
+
+    // pick 8 distinct ingredients: 4 for each player's recipe (no overlap -> no fighting over items)
+    const pool = shuffled(INGREDIENTS);
+    const recipe1 = pool.slice(0,4);
+    const recipe2 = pool.slice(4,8);
+    const decorIngs = pool.slice(8,11); // a few extra scattered just for visual clutter (harmless)
+    const proximityLv = getUpgradeLevel("cookProximityLevel");
+    const P1_START_X = W*0.32, P1_START_Y = H-70;
+
+    function randomFloorSpot(){
+      let x,y,tries=0;
+      do{
+        x = rand(40, W-40);
+        y = rand(KITCHEN_TOP+40, KITCHEN_BOTTOM-20);
+        tries++;
+      } while(tries<20 && ((x<160 && y<120) || (x>W-160 && y<120)));
+      return {x,y};
+    }
+
+    function randomFloorSpotBiased(anchorX, anchorY, biasLevel){
+      const base = randomFloorSpot();
+      if(biasLevel<=0) return base;
+      const chance = biasLevel*0.35; // level1: 35%, level2: 70%
+      if(Math.random() < chance){
+        const pull = 0.35 + biasLevel*0.15;
+        return { x: base.x + (anchorX-base.x)*pull, y: base.y + (anchorY-base.y)*pull };
+      }
+      return base;
+    }
+
+    // scatter all needed ingredients (both recipes) + a few decoys onto the kitchen floor
+    // biasLv is only applied against the robot; in 2-player mode both sides get a fair, unbiased spread
+    let floorItems = [];
+    function scatterItems(biasLv){
+      floorItems = [];
+      recipe1.forEach((ing)=>{
+        const p = randomFloorSpotBiased(P1_START_X, P1_START_Y, biasLv);
+        floorItems.push({ ing, x:p.x, y:p.y, owner:0, taken:false });
+      });
+      recipe2.forEach((ing)=>{
+        const p = randomFloorSpot();
+        floorItems.push({ ing, x:p.x, y:p.y, owner:1, taken:false });
+      });
+      decorIngs.forEach((ing)=>{
+        const p = randomFloorSpot();
+        floorItems.push({ ing, x:p.x, y:p.y, owner:-1, taken:false, decor:true });
+      });
+    }
+    scatterItems(0);
+
+    const BASE_SPEED = 190;
+    const players = [
+      { idx:0, x:W*0.32, y:H-70, r:17, color:"#3ff0ff", table:table1, recipe:recipe1, step:0, carrying:null, done:false, speed:BASE_SPEED },
+      { idx:1, x:W*0.68, y:H-70, r:17, color:"#ff8a3a", table:table2, recipe:recipe2, step:0, carrying:null, done:false, speed:BASE_SPEED }
+    ];
+
+    net.setHandler(data=>{
+      if(data.type==="selectOnline"){ if(mode!=="online") selectMode("online"); }
+      else if(data.type==="input"){ remoteDX = data.dx; remoteDY = data.dy; }
+      else if(data.type==="netInit"){
+        recipe1.length=0; recipe1.push(...data.recipe1);
+        recipe2.length=0; recipe2.push(...data.recipe2);
+        floorItems.length=0; floorItems.push(...data.floorItems);
+      }
+      else if(data.type==="state"){
+        players[0].x=data.p0.x; players[0].y=data.p0.y; players[0].carrying=data.p0.carrying; players[0].step=data.p0.step; players[0].done=data.p0.done;
+        players[1].x=data.p1.x; players[1].y=data.p1.y; players[1].carrying=data.p1.carrying; players[1].step=data.p1.step; players[1].done=data.p1.done;
+        data.taken.forEach((t,i)=>{ if(floorItems[i]) floorItems[i].taken = t; });
+        phase = data.phase; winnerIdx = data.winnerIdx; elapsed = data.elapsed;
+        setScore(Math.floor(elapsed*2));
+      }
+    });
+
+    // raw touch tracking (supports simultaneous multi-touch for 2P on mobile)
+    let touches = [];
+    function updateTouchesFromEvent(e){
+      touches = [];
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W/rect.width, scaleY = H/rect.height;
+      if(e.touches){
+        for(let i=0;i<e.touches.length;i++){
+          const t = e.touches[i];
+          touches.push({ x:(t.clientX-rect.left)*scaleX, y:(t.clientY-rect.top)*scaleY });
+        }
+      }
+    }
+    function touchHandler(e){
+      e.preventDefault();
+      updateTouchesFromEvent(e);
+    }
+    canvas.addEventListener("touchstart", touchHandler, {passive:false});
+    canvas.addEventListener("touchmove", touchHandler, {passive:false});
+    canvas.addEventListener("touchend", touchHandler, {passive:false});
+
+    function selectMode(m){
+      mode = m;
+      phase = "playing";
+      sound.click();
+      if(mode==="robot"){
+        // shop upgrades only help you against the robot — never against a real friend
+        players[0].speed = BASE_SPEED + getUpgradeLevel("cookSpeedLevel")*25;
+        players[1].speed = 180;
+        scatterItems(proximityLv);
+      } else {
+        players[0].speed = BASE_SPEED;
+        players[1].speed = BASE_SPEED;
+        scatterItems(0);
+      }
+      if(mode==="online" && net.isHost){
+        net.send({type:"netInit",
+          recipe1: recipe1.map(i=>({sym:i.sym,name:i.name})),
+          recipe2: recipe2.map(i=>({sym:i.sym,name:i.name})),
+          floorItems: floorItems.map(f=>({ing:{sym:f.ing.sym,name:f.ing.name},x:f.x,y:f.y,owner:f.owner,taken:f.taken,decor:!!f.decor}))
+        });
+      }
+    }
+
+    function update(dt){
+      if(phase === "select"){
+        if(input.pointer.justDown){
+          const p = {x:input.pointer.x, y:input.pointer.y};
+          if(p.y > H*0.42 && p.y < H*0.42+90){
+            if(p.x < W/2) selectMode("robot"); else selectMode("2p");
+          } else if(net.connected && p.y > H*0.42+100 && p.y < H*0.42+100+54){
+            selectMode("online"); net.send({type:"selectOnline"});
+          }
+          input.pointer.justDown = false;
+        }
+        return;
+      }
+      if(phase === "finished"){
+        if(mode==="online" && !net.isHost){
+          if(!netFinishStarted){ netFinishStarted=true; netFinishTimer=1.3; }
+          netFinishTimer -= dt;
+          if(netFinishTimer<=0){ netFinishTimer=999; setTimeout(()=>endGame({ win: winnerIdx===1 }), 50); }
+          return;
+        }
+        finishTimer -= dt;
+        if(finishTimer<=0){
+          finishTimer = 999;
+          const score = Math.max(10, Math.floor(300 - elapsed*4));
+          setScore(score);
+          setTimeout(()=>endGame({ win: winnerIdx===0 }), 50);
+        }
+        return;
+      }
+
+      if(mode==="online" && !net.isHost){
+        // client: send own movement intent, apply host snapshot, skip local physics
+        let dx=0, dy=0;
+        if(input.keys["KeyA"]||input.keys["ArrowLeft"]) dx-=1;
+        if(input.keys["KeyD"]||input.keys["ArrowRight"]) dx+=1;
+        if(input.keys["KeyW"]||input.keys["ArrowUp"]) dy-=1;
+        if(input.keys["KeyS"]||input.keys["ArrowDown"]) dy+=1;
+        if(input.pointer.down){
+          const me = players[1];
+          const ddx=input.pointer.x-me.x, ddy=input.pointer.y-me.y, dd=Math.hypot(ddx,ddy);
+          if(dd>6){ dx=ddx/dd; dy=ddy/dd; }
+        }
+        for(const t of touches){
+          const me = players[1];
+          const ddx=t.x-me.x, ddy=t.y-me.y, dd=Math.hypot(ddx,ddy);
+          if(dd>6){ dx=ddx/dd; dy=ddy/dd; }
+        }
+        netSendTimer -= dt;
+        if(netSendTimer<=0){ netSendTimer=0.033; net.send({type:"input", dx, dy}); }
+        particles.update(dt);
+        return;
+      }
+
+      elapsed += dt;
+      setScore(Math.floor(elapsed*2));
+
+      // ---- Player 1 control (keyboard WASD always, or drag/touch in solo mode) ----
+      const p1 = players[0], p2 = players[1];
+      let d1x=0, d1y=0, d2x=0, d2y=0;
+      if(input.keys["KeyA"]) d1x-=1;
+      if(input.keys["KeyD"]) d1x+=1;
+      if(input.keys["KeyW"]) d1y-=1;
+      if(input.keys["KeyS"]) d1y+=1;
+      if(mode==="robot"){
+        // in solo mode also allow arrow keys + drag-to-move for player 1
+        if(input.keys["ArrowLeft"]) d1x-=1;
+        if(input.keys["ArrowRight"]) d1x+=1;
+        if(input.keys["ArrowUp"]) d1y-=1;
+        if(input.keys["ArrowDown"]) d1y+=1;
+        if(input.pointer.down){
+          const ddx = input.pointer.x-p1.x, ddy = input.pointer.y-p1.y;
+          const dd = Math.hypot(ddx,ddy);
+          if(dd>6){ d1x = ddx/dd; d1y = ddy/dd; }
+        }
+        for(const t of touches){
+          const ddx = t.x-p1.x, ddy = t.y-p1.y;
+          const dd = Math.hypot(ddx,ddy);
+          if(dd>6){ d1x = ddx/dd; d1y = ddy/dd; }
+        }
+      } else if(mode==="2p"){
+        if(input.keys["ArrowLeft"]) d2x-=1;
+        if(input.keys["ArrowRight"]) d2x+=1;
+        if(input.keys["ArrowUp"]) d2y-=1;
+        if(input.keys["ArrowDown"]) d2y+=1;
+        // touch: left half of screen drives player 1, right half drives player 2 (drag-to-move)
+        for(const t of touches){
+          if(t.x < W/2){
+            const ddx = t.x-p1.x, ddy = t.y-p1.y;
+            const dd = Math.hypot(ddx,ddy);
+            if(dd>6){ d1x = ddx/dd; d1y = ddy/dd; }
+          } else {
+            const ddx = t.x-p2.x, ddy = t.y-p2.y;
+            const dd = Math.hypot(ddx,ddy);
+            if(dd>6){ d2x = ddx/dd; d2y = ddy/dd; }
+          }
+        }
+      }
+      movePlayer(p1, d1x, d1y, dt);
+
+      // ---- Player 2 control ----
+      if(mode==="2p"){
+        movePlayer(p2, d2x, d2y, dt);
+      } else if(mode==="online"){
+        movePlayer(p2, remoteDX, remoteDY, dt);
+      } else {
+        updateRobot(p2, dt);
+      }
+
+      handlePickupAndDeliver(p1);
+      handlePickupAndDeliver(p2);
+
+      if(!p1.done && p1.step>=p1.recipe.length){ p1.done = true; finish(0); }
+      if(!p2.done && p2.step>=p2.recipe.length){ p2.done = true; finish(1); }
+
+      particles.update(dt);
+
+      if(mode==="online" && net.isHost){
+        netSendTimer -= dt;
+        if(netSendTimer<=0){
+          netSendTimer = 0.033;
+          net.send({type:"state",
+            p0:{x:p1.x,y:p1.y,carrying:p1.carrying,step:p1.step,done:p1.done},
+            p1:{x:p2.x,y:p2.y,carrying:p2.carrying,step:p2.step,done:p2.done},
+            taken: floorItems.map(f=>f.taken),
+            phase, winnerIdx, elapsed});
+        }
+      }
+    }
+
+    function movePlayer(pl, dx, dy, dt){
+      const len = Math.hypot(dx,dy);
+      if(len>0){ dx/=len; dy/=len; }
+      pl.x = clamp(pl.x + dx*pl.speed*dt, pl.r, W-pl.r);
+      pl.y = clamp(pl.y + dy*pl.speed*dt, KITCHEN_TOP-30+pl.r, KITCHEN_BOTTOM-pl.r+20);
+    }
+
+    let robotTimer = 0;
+    function updateRobot(bot, dt){
+      if(bot.done) return;
+      // decide target: if carrying something, go to own table; else go to next needed ingredient
+      let target = null;
+      if(bot.carrying){
+        target = { x: bot.table.x+bot.table.w/2, y: bot.table.y+bot.table.h/2 };
+      } else {
+        const needed = bot.recipe[bot.step];
+        const item = floorItems.find(f=>!f.taken && f.owner===1 && f.ing===needed);
+        if(item) target = { x:item.x, y:item.y };
+      }
+      if(!target){ return; }
+      const ddx = target.x-bot.x, ddy = target.y-bot.y;
+      const dd = Math.hypot(ddx,ddy);
+      let dx=0, dy=0;
+      if(dd>4){ dx = ddx/dd; dy = ddy/dd; }
+      // slight imperfection so the robot is beatable
+      robotTimer -= dt;
+      if(robotTimer<=0){
+        robotTimer = 0.5;
+        if(Math.random()<0.12){ dx += rand(-0.4,0.4); dy += rand(-0.4,0.4); }
+      }
+      movePlayer(bot, dx, dy, dt);
+    }
+
+    function handlePickupAndDeliver(pl){
+      if(pl.done) return;
+      if(!pl.carrying){
+        const needed = pl.recipe[pl.step];
+        for(const item of floorItems){
+          if(item.taken || item.owner!==pl.idx || item.ing!==needed) continue;
+          if(dist(pl.x,pl.y,item.x,item.y) < pl.r+16){
+            item.taken = true;
+            pl.carrying = item.ing;
+            sound.collect();
+            particles.burst(item.x,item.y,pl.color,10,{gravity:250});
+          }
+        }
+      } else {
+        const t = pl.table;
+        if(pl.x > t.x-10 && pl.x < t.x+t.w+10 && pl.y > t.y-10 && pl.y < t.y+t.h+10){
+          pl.carrying = null;
+          pl.step++;
+          sound.click();
+          particles.burst(t.x+t.w/2,t.y+t.h/2,pl.color,14,{gravity:200,up:80});
+        }
+      }
+    }
+
+    function finish(idx){
+      if(phase==="finished") return;
+      phase = "finished";
+      winnerIdx = idx;
+      finishTimer = 1.3;
+      if(idx===0) sound.win(); else sound.gameover();
+    }
+
+    function drawCharacter(ctx, pl){
+      ctx.save();
+      ctx.translate(pl.x, pl.y);
+      // legs
+      ctx.fillStyle = "#1a1a1a";
+      ctx.fillRect(-8,pl.r-4,6,10);
+      ctx.fillRect(2,pl.r-4,6,10);
+      // body
+      ctx.fillStyle = pl.color;
+      ctx.beginPath(); ctx.arc(0,0,pl.r,0,Math.PI*2); ctx.fill();
+      // face
+      ctx.fillStyle = "#0a1a20";
+      ctx.fillRect(-6,-4,4,4);
+      ctx.fillRect(2,-4,4,4);
+      ctx.restore();
+      if(pl.carrying){
+        ctx.font="18px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText(pl.carrying.sym, pl.x, pl.y-pl.r-14);
+        ctx.textBaseline="alphabetic";
+      }
+    }
+
+    function drawTable(ctx, t, label){
+      ctx.fillStyle = "#3a2f2a";
+      roundRect(ctx, t.x, t.y, t.w, t.h, 6); ctx.fill();
+      ctx.strokeStyle = t.color; ctx.lineWidth = 2;
+      roundRect(ctx, t.x, t.y, t.w, t.h, 6); ctx.stroke();
+      ctx.fillStyle = "#eaf2ff"; ctx.font="10px monospace"; ctx.textAlign="center";
+      ctx.fillText(label, t.x+t.w/2, t.y+t.h+14);
+      ctx.textAlign="left";
+    }
+
+    function drawRecipeStrip(ctx, x0, w, pl){
+      const size = 26, gap=4;
+      const total = pl.recipe.length*(size+gap)-gap;
+      const startX = x0 + (w-total)/2;
+      for(let i=0;i<pl.recipe.length;i++){
+        const ing = pl.recipe[i];
+        const done = i < pl.step;
+        const current = i === pl.step;
+        ctx.fillStyle = done ? "rgba(61,255,138,0.3)" : current ? "rgba(255,226,63,0.25)" : "rgba(255,255,255,0.06)";
+        roundRect(ctx, startX+i*(size+gap), 8, size, size, 5); ctx.fill();
+        ctx.font="15px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.fillText(ing.sym, startX+i*(size+gap)+size/2, 8+size/2+1);
+        ctx.textBaseline="alphabetic";
+        if(current){
+          ctx.strokeStyle="#ffe23f"; ctx.lineWidth=2;
+          roundRect(ctx, startX+i*(size+gap), 8, size, size, 5); ctx.stroke();
+        }
+      }
+      ctx.textAlign="left";
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+
+      if(phase === "select"){
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 20px monospace"; ctx.textAlign="center";
+        ctx.fillText("🍳 COOKING DUEL", W/2, H*0.28);
+        ctx.font="13px monospace"; ctx.fillStyle="#8ea0c8";
+        ctx.fillText("توی آشپزخونه راه برو، مواد رو به ترتیب به میزت برسون!", W/2, H*0.28+30);
+
+        ctx.fillStyle="#1a2340";
+        roundRect(ctx, 20, H*0.42, W/2-30, 90, 10); ctx.fill();
+        roundRect(ctx, W/2+10, H*0.42, W/2-30, 90, 10); ctx.fill();
+        ctx.strokeStyle="#ff8a3a"; ctx.lineWidth=2;
+        roundRect(ctx, 20, H*0.42, W/2-30, 90, 10); ctx.stroke();
+        roundRect(ctx, W/2+10, H*0.42, W/2-30, 90, 10); ctx.stroke();
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 15px monospace";
+        ctx.fillText("🤖 مقابل ربات", W/4+5, H*0.42+40);
+        ctx.fillText("👥 دو نفره", W*0.75+5, H*0.42+40);
+        ctx.font="10px monospace"; ctx.fillStyle="#8ea0c8";
+        ctx.fillText("حرکت: WASD یا لمس", W/4+5, H*0.42+64);
+        ctx.fillText("چپ صفحه: نفر۱ | راست: نفر۲", W*0.75+5, H*0.42+64);
+        ctx.textAlign="left";
+        if(net.connected){
+          const y3 = H*0.42+100;
+          ctx.fillStyle="#1a2340"; roundRect(ctx,20,y3,W-40,54,10); ctx.fill();
+          ctx.strokeStyle="#3dff8a"; ctx.lineWidth=2; roundRect(ctx,20,y3,W-40,54,10); ctx.stroke();
+          ctx.fillStyle="#3dff8a"; ctx.font="bold 15px monospace"; ctx.textAlign="center";
+          ctx.fillText("🌐 دو نفره آنلاین (با دوستت)", W/2, y3+33);
+          ctx.textAlign="left";
+        }
+        return;
+      }
+
+      // floor
+      ctx.fillStyle="rgba(255,255,255,0.02)";
+      for(let x=0;x<W;x+=40) ctx.fillRect(x,KITCHEN_TOP,1,H-KITCHEN_TOP);
+      for(let y=KITCHEN_TOP;y<H;y+=40) ctx.fillRect(0,y,W,1);
+
+      const onlineMe = mode==="online" ? (net.isHost?"میز شما":"میز دوست") : null;
+      const onlineOther = mode==="online" ? (net.isHost?"میز دوست":"میز شما") : null;
+      drawTable(ctx, table1, onlineMe || "میز شما");
+      drawTable(ctx, table2, mode==="2p" ? "میز بازیکن ۲" : (onlineOther || "میز ربات"));
+
+      // recipe strips
+      drawRecipeStrip(ctx, 0, W/2, players[0]);
+      drawRecipeStrip(ctx, W/2, W/2, players[1]);
+
+      // floor ingredients
+      for(const item of floorItems){
+        if(item.taken) continue;
+        ctx.font="24px sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+        ctx.globalAlpha = item.decor ? 0.35 : 1;
+        ctx.fillText(item.ing.sym, item.x, item.y);
+        ctx.globalAlpha = 1;
+        ctx.textBaseline="alphabetic";
+      }
+
+      drawCharacter(ctx, players[0]);
+      drawCharacter(ctx, players[1]);
+
+      particles.draw(ctx);
+
+      if(phase === "finished"){
+        ctx.fillStyle="rgba(3,5,12,0.55)"; ctx.fillRect(0,0,W,H);
+        ctx.fillStyle = winnerIdx===0 ? "#3dff8a" : "#ff3fb0";
+        ctx.font="bold 24px monospace"; ctx.textAlign="center";
+        let label;
+        if(mode==="online") label = (winnerIdx===(net.isHost?0:1)) ? "شما" : "دوست";
+        else label = winnerIdx===0 ? "شما" : (mode==="2p"?"بازیکن ۲":"ربات");
+        ctx.fillText(label+" برنده شد!", W/2, H/2);
+        ctx.textAlign="left";
+      }
+    }
+
+    return { update, draw, destroy(){
+      canvas.removeEventListener("touchstart", touchHandler);
+      canvas.removeEventListener("touchmove", touchHandler);
+      canvas.removeEventListener("touchend", touchHandler);
+      floorItems=[]; particles.clear();
+    } };
+  }
+
+  window.__registerGame({
+    id:"cooking-duel", name:"Cooking Duel",
+    desc:"توی آشپزخونه راه برو و مواد رو به ترتیب به میزت برسون.",
+    color:"#ff8a3a", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 17: CROSSY HOPPER (SOLO / VS ROBOT / 2-PLAYER)
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#3dff8a"; cctx.fillRect(4,4,24,9);
+    cctx.fillStyle="#2a2f45"; cctx.fillRect(4,14,24,7);
+    cctx.fillStyle="#0e2a3d"; cctx.fillRect(4,23,24,7);
+    cctx.fillStyle="#ff8a3a"; cctx.fillRect(6,15,7,5);
+    cctx.fillStyle="#3ff0ff"; cctx.fillRect(13,24,6,6);
+  }
+
+  const COLS = 5;
+  const CELL_H = 58;
+  const HOP_DUR = 0.13;
+  const GOAL_ROW = 55;
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,triggerShake,makeParticleSystem,endGame,setScore,roundRect,net } = api;
+    const particles = makeParticleSystem();
+
+    let phase = "select"; // select -> playing -> finished
+    let mode = null; // "solo" | "robot" | "2p" | "online"
+    let winnerIdx = -1;
+    let finishTimer = 0;
+    let soloOver = false, soloOverTimer = 0;
+    let netSendTimer = 0;
+    let netFinishTimer = 0, netFinishStarted = false;
+
+    const hopSpeedLv = getUpgradeLevel("hopSpeedLevel");
+    const hasShield = getUpgradeLevel("hopShieldLevel") >= 1;
+
+    function makeTrack(x0, colW, isBot, bonusEligible){
+      return {
+        x0, colW, cellW: colW/COLS,
+        baseY: H-90,
+        camera: 0,
+        rows: new Map(),
+        isBot,
+        shieldLeft: bonusEligible ? (hasShield?1:0) : 0,
+        hopDur: bonusEligible ? Math.max(0.07, HOP_DUR - hopSpeedLv*0.02) : HOP_DUR,
+        player: { col:2, row:0, fromCol:2, fromRow:0, hopping:false, hopT:0, alive:true, colOffsetPx:0, maxRow:0 },
+        botTimer: rand(0,0.2)
+      };
+    }
+
+    let tracks = [];
+
+    function applyTrackSnapshot(track, snap){
+      Object.assign(track.player, snap.player);
+      track.camera = snap.player.camera;
+      snap.rows.forEach(r=> track.rows.set(r.idx, {type:r.type, obs:r.obs||[]}));
+    }
+    net.setHandler(data=>{
+      if(data.type==="selectOnline"){ if(mode!=="online") selectMode("online"); }
+      else if(data.type==="hopInput"){ if(tracks[1]) hop(tracks[1], data.dcol, data.drow); }
+      else if(data.type==="state"){
+        if(tracks[0] && tracks[1]){
+          applyTrackSnapshot(tracks[0], data.t0);
+          applyTrackSnapshot(tracks[1], data.t1);
+          phase = data.phase; winnerIdx = data.winnerIdx;
+          setScore(Math.max(tracks[0].player.maxRow, tracks[1].player.maxRow)*10);
+        }
+      }
+    });
+
+    function colScreenX(track, col){ return col*track.cellW + track.cellW/2; }
+
+    function rowFor(track, idx){
+      let row = track.rows.get(idx);
+      if(row) return row;
+      if(idx < 3){ row = { type:"grass", obs:[] }; }
+      else {
+        const r = Math.random();
+        const type = r<0.45?"grass": r<0.78?"road":"river";
+        if(type==="grass"){ row = { type, obs:[] }; }
+        else {
+          const dir = Math.random()<0.5?1:-1;
+          const speed = rand(65,120) + Math.min(idx*0.5, 55);
+          const count = 3;
+          const trackLen = track.colW+90;
+          const obs = [];
+          for(let i=0;i<count;i++){
+            const w = type==="road"? rand(40,56) : rand(76,112);
+            const gap = trackLen/count;
+            obs.push({ x: -45 + i*gap + rand(0,gap*0.35), w, vx: dir*speed });
+          }
+          row = { type, obs };
+        }
+      }
+      track.rows.set(idx, row);
+      return row;
+    }
+
+    function updateRow(track, row, dt){
+      if(row.type==="grass") return;
+      const trackLen = track.colW+90;
+      for(const o of row.obs){
+        o.x += o.vx*dt;
+        if(o.vx>0 && o.x>track.colW+45) o.x -= trackLen;
+        if(o.vx<0 && o.x < -45-o.w) o.x += trackLen;
+      }
+    }
+
+    function hop(track, dcol, drow){
+      const p = track.player;
+      if(p.hopping || !p.alive) return false;
+      const newCol = clamp(p.col+dcol, 0, COLS-1);
+      const newRow = Math.max(0, p.row+drow);
+      if(newCol===p.col && newRow===p.row) return false;
+      p.fromCol = p.col; p.fromRow = p.row;
+      p.col = newCol; p.row = newRow;
+      p.colOffsetPx = 0;
+      p.hopping = true; p.hopT = 0;
+      if(p.row > p.maxRow) p.maxRow = p.row;
+      sound.jump();
+      return true;
+    }
+
+    function killPlayer(track){
+      const p = track.player;
+      if(!p.alive) return;
+      if(track.shieldLeft>0){ track.shieldLeft--; sound.hit(); return; }
+      p.alive = false;
+      sound.hit(); triggerShake(6,0.25);
+      particles.burst(track.x0+colScreenX(track,p.col), track.baseY, "#ff3fb0", 18, {gravity:400});
+    }
+
+    function checkHazard(track, dt){
+      const p = track.player;
+      if(!p.alive || p.hopping) return;
+      const row = rowFor(track, p.row);
+      if(row.type==="grass") return;
+      const px = colScreenX(track, p.col) + p.colOffsetPx;
+      const halfW = 15;
+      if(row.type==="road"){
+        for(const o of row.obs){
+          if(px+halfW>o.x && px-halfW<o.x+o.w){ killPlayer(track); return; }
+        }
+      } else {
+        let onLog=false, vx=0;
+        for(const o of row.obs){
+          if(px+halfW>o.x && px-halfW<o.x+o.w){ onLog=true; vx=o.vx; break; }
+        }
+        if(!onLog){ killPlayer(track); return; }
+        p.colOffsetPx += vx*dt;
+        const absX = colScreenX(track,p.col)+p.colOffsetPx;
+        if(absX < -6 || absX > track.colW+6){ killPlayer(track); }
+      }
+    }
+
+    function updateTrack(track, dt){
+      const p = track.player;
+      if(p.hopping){
+        p.hopT += dt;
+        if(p.hopT >= track.hopDur){ p.hopping=false; p.hopT=0; }
+      }
+      for(let i=Math.max(0,p.row-2); i<=p.row+10; i++){
+        const row = rowFor(track,i);
+        updateRow(track,row,dt);
+      }
+      checkHazard(track, dt);
+      track.camera += (p.row - track.camera) * Math.min(1, dt*9);
+    }
+
+    function botAI(track, dt){
+      const p = track.player;
+      if(!p.alive) return;
+      track.botTimer -= dt;
+      if(track.botTimer>0) return;
+      track.botTimer = 0.16;
+      if(p.hopping) return;
+      const row = rowFor(track, p.row);
+      if(row.type==="river"){
+        const px = colScreenX(track,p.col)+p.colOffsetPx;
+        const onLog = row.obs.some(o=> px+15>o.x && px-15<o.x+o.w);
+        if(!onLog){
+          let best=null, bestD=999;
+          for(let c=0;c<COLS;c++){
+            const cx = colScreenX(track,c);
+            const covered = row.obs.some(o=> cx+15>o.x && cx-15<o.x+o.w);
+            if(covered){ const d=Math.abs(c-p.col); if(d<bestD){bestD=d;best=c;} }
+          }
+          if(best!==null && best!==p.col){ hop(track, best>p.col?1:-1, 0); return; }
+          hop(track, 0, Math.random()<0.5?1:-1);
+          return;
+        }
+      }
+      const nextRow = rowFor(track, p.row+1);
+      let dangerAhead = false;
+      if(nextRow.type==="road"){
+        const cx = colScreenX(track,p.col);
+        dangerAhead = nextRow.obs.some(o=> Math.abs((o.x+o.w/2)-cx) < o.w*1.4);
+      }
+      if(dangerAhead && Math.random()<0.7){
+        const dir = Math.random()<0.5?-1:1;
+        const nc = clamp(p.col+dir,0,COLS-1);
+        if(nc!==p.col){ hop(track, dir, 0); return; }
+      }
+      if(Math.random()<0.72) hop(track, 0, 1);
+      else hop(track, Math.random()<0.5?-1:1, 0);
+    }
+
+    // --- input: swipe / keyboard ---
+    let touchStarts = {};
+    function localPos(t){
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W/rect.width, scaleY = H/rect.height;
+      return { x:(t.clientX-rect.left)*scaleX, y:(t.clientY-rect.top)*scaleY };
+    }
+    function trackAt(x){ return mode==="2p" ? (x<W/2?0:1) : 0; }
+    function applySwipe(x0, dx, dy){
+      if(phase!=="playing") return;
+      if(Math.hypot(dx,dy) < 24) return;
+      if(mode==="online" && !net.isHost){
+        let dcol=0, drow=0;
+        if(Math.abs(dx) > Math.abs(dy)) dcol = dx>0?1:-1; else drow = dy<0?1:-1;
+        net.send({type:"hopInput", dcol, drow});
+        return;
+      }
+      const track = tracks[trackAt(x0)];
+      if(!track || track.isBot) return;
+      if(Math.abs(dx) > Math.abs(dy)) hop(track, dx>0?1:-1, 0);
+      else hop(track, 0, dy<0?1:-1);
+    }
+    function onTouchStart(e){
+      if(phase!=="playing") return;
+      e.preventDefault();
+      for(const t of e.changedTouches){ touchStarts[t.identifier]=localPos(t); }
+    }
+    function onTouchMove(e){ if(phase==="playing") e.preventDefault(); }
+    function onTouchEnd(e){
+      if(phase!=="playing") return;
+      e.preventDefault();
+      for(const t of e.changedTouches){
+        const st = touchStarts[t.identifier];
+        if(!st) continue;
+        const p = localPos(t);
+        applySwipe(st.x, p.x-st.x, p.y-st.y);
+        delete touchStarts[t.identifier];
+      }
+    }
+    let mouseStart = null;
+    function onMouseDown(e){
+      if(phase!=="playing") return;
+      const rect = canvas.getBoundingClientRect();
+      const sx=W/rect.width, sy=H/rect.height;
+      mouseStart = { x:(e.clientX-rect.left)*sx, y:(e.clientY-rect.top)*sy };
+    }
+    function onMouseUp(e){
+      if(!mouseStart) return;
+      const rect = canvas.getBoundingClientRect();
+      const sx=W/rect.width, sy=H/rect.height;
+      const x=(e.clientX-rect.left)*sx, y=(e.clientY-rect.top)*sy;
+      applySwipe(mouseStart.x, x-mouseStart.x, y-mouseStart.y);
+      mouseStart = null;
+    }
+    canvas.addEventListener("touchstart", onTouchStart, {passive:false});
+    canvas.addEventListener("touchmove", onTouchMove, {passive:false});
+    canvas.addEventListener("touchend", onTouchEnd, {passive:false});
+    canvas.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
+
+    let keyLock = {};
+    function handleKeys(){
+      if(phase!=="playing") return;
+      if(mode==="online" && !net.isHost){
+        if(input.keys["KeyA"] && !keyLock.KeyA) net.send({type:"hopInput",dcol:-1,drow:0});
+        if(input.keys["KeyD"] && !keyLock.KeyD) net.send({type:"hopInput",dcol:1,drow:0});
+        if(input.keys["KeyW"] && !keyLock.KeyW) net.send({type:"hopInput",dcol:0,drow:1});
+        if(input.keys["KeyS"] && !keyLock.KeyS) net.send({type:"hopInput",dcol:0,drow:-1});
+        if(input.keys["ArrowLeft"] && !keyLock.ArrowLeft) net.send({type:"hopInput",dcol:-1,drow:0});
+        if(input.keys["ArrowRight"] && !keyLock.ArrowRight) net.send({type:"hopInput",dcol:1,drow:0});
+        if(input.keys["ArrowUp"] && !keyLock.ArrowUp) net.send({type:"hopInput",dcol:0,drow:1});
+        if(input.keys["ArrowDown"] && !keyLock.ArrowDown) net.send({type:"hopInput",dcol:0,drow:-1});
+        ["KeyA","KeyD","KeyW","KeyS","ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].forEach(k=> keyLock[k]=!!input.keys[k]);
+        return;
+      }
+      const t0 = tracks[0];
+      if(t0 && !t0.isBot){
+        if(input.keys["KeyA"] && !keyLock.KeyA) hop(t0,-1,0);
+        if(input.keys["KeyD"] && !keyLock.KeyD) hop(t0,1,0);
+        if(input.keys["KeyW"] && !keyLock.KeyW) hop(t0,0,1);
+        if(input.keys["KeyS"] && !keyLock.KeyS) hop(t0,0,-1);
+        if(mode!=="2p"){
+          if(input.keys["ArrowLeft"] && !keyLock.ArrowLeft) hop(t0,-1,0);
+          if(input.keys["ArrowRight"] && !keyLock.ArrowRight) hop(t0,1,0);
+          if(input.keys["ArrowUp"] && !keyLock.ArrowUp) hop(t0,0,1);
+          if(input.keys["ArrowDown"] && !keyLock.ArrowDown) hop(t0,0,-1);
+        }
+      }
+      if(mode==="2p" && tracks[1]){
+        const t1 = tracks[1];
+        if(input.keys["ArrowLeft"] && !keyLock.ArrowLeft) hop(t1,-1,0);
+        if(input.keys["ArrowRight"] && !keyLock.ArrowRight) hop(t1,1,0);
+        if(input.keys["ArrowUp"] && !keyLock.ArrowUp) hop(t1,0,1);
+        if(input.keys["ArrowDown"] && !keyLock.ArrowDown) hop(t1,0,-1);
+      }
+      ["KeyA","KeyD","KeyW","KeyS","ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].forEach(k=> keyLock[k]=!!input.keys[k]);
+    }
+
+    function selectMode(m){
+      mode = m; phase = "playing"; sound.click();
+      const pad = 14;
+      if(mode==="solo"){
+        tracks = [ makeTrack(0, W, false, true) ];
+      } else {
+        const colW = (W-pad*3)/2;
+        tracks = [ makeTrack(pad, colW, false, mode==="robot"), makeTrack(pad*2+colW, colW, mode==="robot", false) ];
+      }
+    }
+
+    function finish(idx){
+      if(phase==="finished") return;
+      phase="finished"; winnerIdx=idx; finishTimer=1.2;
+      if(idx===0) sound.win(); else sound.gameover();
+    }
+
+    function update(dt){
+      if(phase==="select"){
+        if(input.pointer.justDown){
+          const p = {x:input.pointer.x,y:input.pointer.y};
+          if(p.y>H*0.36 && p.y<H*0.36+64) selectMode("solo");
+          else if(p.y>H*0.36+76 && p.y<H*0.36+76+64){ if(p.x<W/2) selectMode("robot"); else selectMode("2p"); }
+          else if(net.connected && p.y>H*0.36+76+76 && p.y<H*0.36+76+76+54){ selectMode("online"); net.send({type:"selectOnline"}); }
+          input.pointer.justDown = false;
+        }
+        return;
+      }
+      if(phase==="finished"){
+        if(mode==="online" && !net.isHost){
+          if(!netFinishStarted){ netFinishStarted=true; netFinishTimer=1.2; }
+          netFinishTimer -= dt;
+          if(netFinishTimer<=0){ netFinishTimer=999; setTimeout(()=>endGame({win: winnerIdx===1}), 50); }
+          return;
+        }
+        finishTimer -= dt;
+        if(finishTimer<=0){ finishTimer=999; setTimeout(()=>endGame({win: winnerIdx===0}), 50); }
+        return;
+      }
+
+      if(mode==="online" && !net.isHost){
+        handleKeys();
+        return;
+      }
+
+      handleKeys();
+      for(const t of tracks) updateTrack(t, dt);
+      if(mode!=="solo") for(const t of tracks) if(t.isBot) botAI(t, dt);
+      particles.update(dt);
+
+      if(mode==="solo"){
+        const t = tracks[0];
+        setScore(t.player.maxRow*10);
+        if(!t.player.alive && !soloOver){ soloOver=true; soloOverTimer=0.9; }
+        if(soloOver){
+          soloOverTimer -= dt;
+          if(soloOverTimer<=0){ soloOverTimer=999; setTimeout(()=>endGame({win:false}),50); }
+        }
+      } else {
+        const t0=tracks[0], t1=tracks[1];
+        setScore(Math.max(t0.player.maxRow,t1.player.maxRow)*10);
+        if(phase==="playing"){
+          if(t0.player.row>=GOAL_ROW && t0.player.alive) finish(0);
+          else if(t1.player.row>=GOAL_ROW && t1.player.alive) finish(1);
+          else if(!t0.player.alive && t1.player.alive) finish(1);
+          else if(!t1.player.alive && t0.player.alive) finish(0);
+          else if(!t0.player.alive && !t1.player.alive) finish(-1);
+        }
+      }
+
+      if(mode==="online" && net.isHost){
+        netSendTimer -= dt;
+        if(netSendTimer<=0){
+          netSendTimer = 0.06;
+          const snap = (track)=>{
+            const idxFrom = Math.max(0, Math.floor(track.camera-3)), idxTo = Math.ceil(track.camera+14);
+            const rows = [];
+            for(let ri=idxFrom; ri<=idxTo; ri++){
+              const row = rowFor(track, ri);
+              rows.push({ idx:ri, type:row.type, obs: row.type==="grass"?[]:row.obs.map(o=>({x:o.x,w:o.w})) });
+            }
+            return { player: {...track.player, camera:track.camera}, rows };
+          };
+          net.send({type:"state", t0:snap(tracks[0]), t1:snap(tracks[1]), phase, winnerIdx});
+        }
+      }
+    }
+
+    function drawTrack(ctx, track, label){
+      ctx.save();
+      ctx.beginPath(); ctx.rect(track.x0, 0, track.colW, H); ctx.clip();
+      const topRow = Math.floor(track.camera - track.baseY/CELL_H) - 1;
+      const botRow = Math.ceil(track.camera + (H-track.baseY)/CELL_H) + 1;
+      for(let ri=Math.max(0,topRow); ri<=botRow; ri++){
+        const row = rowFor(track, ri);
+        const y = track.baseY - (ri-track.camera)*CELL_H;
+        if(y < -CELL_H || y > H+CELL_H) continue;
+        ctx.fillStyle = row.type==="grass" ? "#16321f" : row.type==="road" ? "#20242f" : "#0e2a3d";
+        ctx.fillRect(track.x0, y-CELL_H/2, track.colW, CELL_H);
+        if(row.type!=="grass"){
+          ctx.fillStyle = row.type==="road" ? "#ff8a3a" : "#3ff0ff";
+          for(const o of row.obs) ctx.fillRect(track.x0+o.x, y-12, o.w, 24);
+        }
+      }
+      const p = track.player;
+      const t = p.hopping ? Math.min(1,p.hopT/track.hopDur) : 1;
+      const fromX = colScreenX(track,p.fromCol), toX = colScreenX(track,p.col);
+      const px = p.hopping ? fromX+(toX-fromX)*t : toX+p.colOffsetPx;
+      const arc = p.hopping ? -Math.sin(t*Math.PI)*14 : 0;
+      ctx.fillStyle = track.isBot ? "#ff8a3a" : "#3ff0ff";
+      ctx.beginPath(); ctx.arc(track.x0+px, track.baseY+arc, 15, 0, Math.PI*2); ctx.fill();
+      if(!p.alive){ ctx.fillStyle="rgba(3,5,12,0.5)"; ctx.fillRect(track.x0,0,track.colW,H); }
+      ctx.restore();
+      ctx.fillStyle="#eaf2ff"; ctx.font="11px monospace"; ctx.textAlign="center";
+      ctx.fillText(label, track.x0+track.colW/2, 16);
+      if(mode!=="solo") ctx.fillText("خط: "+p.row+"/"+GOAL_ROW, track.x0+track.colW/2, H-8);
+      ctx.textAlign="left";
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      if(phase==="select"){
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 20px monospace"; ctx.textAlign="center";
+        ctx.fillText("🐸 CROSSY HOPPER", W/2, H*0.26);
+        ctx.font="12px monospace"; ctx.fillStyle="#8ea0c8";
+        ctx.fillText("از جاده و رودخونه رد شو!", W/2, H*0.26+26);
+
+        ctx.fillStyle="#1a2340"; roundRect(ctx, 20, H*0.36, W-40, 64, 10); ctx.fill();
+        ctx.strokeStyle="#3dff8a"; ctx.lineWidth=2; roundRect(ctx, 20, H*0.36, W-40, 64, 10); ctx.stroke();
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 15px monospace";
+        ctx.fillText("🧍 تک نفره", W/2, H*0.36+38);
+
+        const y2 = H*0.36+76;
+        ctx.fillStyle="#1a2340";
+        roundRect(ctx, 20, y2, W/2-30, 64, 10); ctx.fill();
+        roundRect(ctx, W/2+10, y2, W/2-30, 64, 10); ctx.fill();
+        ctx.strokeStyle="#ff8a3a"; roundRect(ctx, 20, y2, W/2-30, 64, 10); ctx.stroke();
+        ctx.strokeStyle="#3ff0ff"; roundRect(ctx, W/2+10, y2, W/2-30, 64, 10); ctx.stroke();
+        ctx.fillStyle="#eaf2ff";
+        ctx.fillText("🤖 با ربات", W/4+5, y2+38);
+        ctx.fillText("👥 دو نفره", W*0.75+5, y2+38);
+        ctx.font="10px monospace"; ctx.fillStyle="#8ea0c8";
+        ctx.fillText("لمس: کشیدن انگشت | صفحه‌کلید: WASD/جهت‌نما", W/2, H*0.36+64+40);
+        ctx.textAlign="left";
+        if(net.connected){
+          const y3 = H*0.36+76+76;
+          ctx.fillStyle="#1a2340"; roundRect(ctx,20,y3,W-40,54,10); ctx.fill();
+          ctx.strokeStyle="#3dff8a"; ctx.lineWidth=2; roundRect(ctx,20,y3,W-40,54,10); ctx.stroke();
+          ctx.fillStyle="#3dff8a"; ctx.font="bold 15px monospace"; ctx.textAlign="center";
+          ctx.fillText("🌐 دو نفره آنلاین (با دوستت)", W/2, y3+33);
+          ctx.textAlign="left";
+        }
+        return;
+      }
+      const myTrackIdx = net.isHost ? 0 : 1;
+      for(const t of tracks) drawTrack(ctx, t, mode==="solo" ? "شما" : mode==="online" ? (tracks.indexOf(t)===myTrackIdx ? "شما":"دوست") : (t.isBot?"🤖 ربات": t===tracks[0]?"شما":"بازیکن ۲"));
+      particles.draw(ctx);
+      if(phase==="finished"){
+        ctx.fillStyle="rgba(3,5,12,0.55)"; ctx.fillRect(0,0,W,H);
+        ctx.fillStyle = winnerIdx===0 ? "#3dff8a" : "#ff3fb0";
+        ctx.font="bold 22px monospace"; ctx.textAlign="center";
+        let label;
+        if(winnerIdx===-1) label = "مساوی!";
+        else if(mode==="online") label = (winnerIdx===myTrackIdx) ? "شما برنده شدید!" : "دوست برنده شد!";
+        else if(winnerIdx===0) label = "شما برنده شدید!";
+        else label = mode==="2p" ? "بازیکن ۲ برنده شد!" : "ربات برنده شد!";
+        ctx.fillText(label, W/2, H/2);
+        ctx.textAlign="left";
+      }
+    }
+
+    return { update, draw, destroy(){
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchmove", onTouchMove);
+      canvas.removeEventListener("touchend", onTouchEnd);
+      canvas.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mouseup", onMouseUp);
+      tracks = []; particles.clear();
+    } };
+  }
+
+  window.__registerGame({
+    id:"crossy-hopper", name:"Crossy Hopper",
+    desc:"از جاده شلوغ و رودخونه رد شو — تک‌نفره، با ربات یا دونفره.",
+    color:"#3dff8a", drawIcon, init
+  });
+})();
+
+/* =========================================================
+   GAME 18: TEMPLE DASH (SOLO / VS ROBOT / 2-PLAYER)
+   ========================================================= */
+(function(){
+  function drawIcon(cctx){
+    cctx.fillStyle="#ffe23f"; cctx.fillRect(4,4,24,6);
+    cctx.fillStyle="#3ff0ff"; cctx.fillRect(13,10,6,14);
+    cctx.fillStyle="#ff8a3a"; cctx.fillRect(6,24,20,4);
+    cctx.fillStyle="#1a1a1a"; cctx.fillRect(15,12,3,3);
+  }
+
+  const LANES = 3;
+  const GRAV = 2000, JUMP_V = -720;
+  const GOAL_DIST = 3200;
+
+  function init(api){
+    const { W,H,input,sound,rand,clamp,triggerShake,makeParticleSystem,endGame,setScore,roundRect,net } = api;
+    const particles = makeParticleSystem();
+
+    let phase = "select";
+    let mode = null;
+    let winnerIdx = -1;
+    let finishTimer = 0;
+    let soloOver=false, soloOverTimer=0;
+    let netSendTimer = 0;
+    let netFinishTimer = 0, netFinishStarted = false;
+
+    const speedLv = getUpgradeLevel("dashSpeedLevel");
+    const jumpLv = getUpgradeLevel("dashJumpLevel");
+
+    function makeTrack(x0, colW, isBot, bonusEligible){
+      const laneW = colW/LANES;
+      return {
+        x0, colW, laneW, isBot,
+        groundY: H-90,
+        speed: 260 + (bonusEligible? speedLv*18 : 0),
+        jumpV: JUMP_V - (bonusEligible? jumpLv*70 : 0),
+        elapsed: 0,
+        distance: 0,
+        lane: 1,
+        targetLane: 1,
+        x: x0 + laneW*1.5,
+        vy: 0, y: 0, onGround:true,
+        alive: true,
+        obstacles: [],
+        spawnTimer: 0.9,
+        botTimer: rand(0,0.2)
+      };
+    }
+
+    let tracks = [];
+
+    function applyTrackSnapshot(track, snap){
+      track.x=snap.x; track.y=snap.y; track.lane=snap.lane; track.targetLane=snap.targetLane;
+      track.alive=snap.alive; track.distance=snap.distance; track.onGround=snap.onGround;
+      track.obstacles = snap.obstacles;
+    }
+    net.setHandler(data=>{
+      if(data.type==="selectOnline"){ if(mode!=="online") selectMode("online"); }
+      else if(data.type==="laneInput"){ if(tracks[1]) switchLane(tracks[1], data.d); }
+      else if(data.type==="jumpInput"){ if(tracks[1]) jump(tracks[1]); }
+      else if(data.type==="state"){
+        if(tracks[0] && tracks[1]){
+          applyTrackSnapshot(tracks[0], data.t0);
+          applyTrackSnapshot(tracks[1], data.t1);
+          phase = data.phase; winnerIdx = data.winnerIdx;
+          setScore(Math.floor(Math.max(tracks[0].distance, tracks[1].distance)/8));
+        }
+      }
+    });
+
+    function laneX(track, lane){ return track.x0 + lane*track.laneW + track.laneW/2; }
+    function jump(track){ if(track.alive && track.onGround){ track.vy=track.jumpV; track.onGround=false; sound.jump(); } }
+    function switchLane(track, d){ if(track.alive) track.targetLane = clamp(track.targetLane+d, 0, LANES-1); }
+
+    function spawnObstacle(track){
+      const lane = Math.floor(rand(0,LANES));
+      const tall = Math.random()<0.55;
+      track.obstacles.push({ lane, y:-40, tall, w: track.laneW*0.7, h: tall?46:22 });
+    }
+
+    function updateTrack(track, dt){
+      if(!track.alive) return;
+      track.elapsed += dt;
+      track.speed = Math.min(track.speed + dt*14, 560);
+      track.distance += track.speed*dt;
+
+      track.lane += (track.targetLane-track.lane)*Math.min(1,dt*12);
+      track.x = laneX(track, track.lane);
+
+      track.vy += GRAV*dt;
+      track.y += track.vy*dt;
+      if(track.y>0){ track.y=0; track.vy=0; track.onGround=true; }
+
+      track.spawnTimer -= dt;
+      if(track.spawnTimer<=0){ spawnObstacle(track); track.spawnTimer = Math.max(0.55, 1.05 - track.elapsed*0.008); }
+
+      for(let i=track.obstacles.length-1;i>=0;i--){
+        const o = track.obstacles[i];
+        o.y += track.speed*dt;
+        if(o.y>H+60){ track.obstacles.splice(i,1); continue; }
+        const sameLane = Math.round(track.lane)===o.lane;
+        const nearGround = o.y > track.groundY-40 && o.y < track.groundY+30;
+        if(sameLane && nearGround){
+          const airborne = track.y < -26;
+          if(o.tall || !airborne) crash(track);
+        }
+      }
+    }
+
+    function crash(track){
+      if(!track.alive) return;
+      track.alive = false;
+      sound.hit(); triggerShake(7,0.25);
+      particles.burst(track.x, track.groundY+track.y, "#ff3fb0", 20, {gravity:450});
+    }
+
+    function botAI(track, dt){
+      if(!track.alive) return;
+      track.botTimer -= dt;
+      if(track.botTimer>0) return;
+      track.botTimer = 0.15;
+      const curLane = Math.round(track.lane);
+      let danger = null;
+      for(const o of track.obstacles){
+        if(o.lane===curLane && o.y>0 && o.y<track.groundY-60){ danger=o; break; }
+      }
+      if(danger){
+        if(danger.tall){
+          const opts = [0,1,2].filter(l=>l!==curLane);
+          const safe = opts.find(l=> !track.obstacles.some(o=>o.lane===l && o.y>0 && o.y<track.groundY-40));
+          switchLane(track, (safe!==undefined?safe:opts[0])-curLane);
+        } else if(Math.random()<0.75){
+          jump(track);
+        } else {
+          const opts=[0,1,2].filter(l=>l!==curLane);
+          switchLane(track, opts[Math.floor(Math.random()*opts.length)]-curLane);
+        }
+      }
+    }
+
+    // --- input ---
+    let touchStarts = {};
+    function localPos(t){
+      const rect = canvas.getBoundingClientRect();
+      const sx=W/rect.width, sy=H/rect.height;
+      return { x:(t.clientX-rect.left)*sx, y:(t.clientY-rect.top)*sy };
+    }
+    function trackAt(x){ return mode==="2p" ? (x<W/2?0:1) : 0; }
+    function applyGesture(x0, dx, dy){
+      if(phase!=="playing") return;
+      if(mode==="online" && !net.isHost){
+        if(Math.abs(dx) > 26 && Math.abs(dx) > Math.abs(dy)) net.send({type:"laneInput", d: dx>0?1:-1});
+        else if(dy < -22 || Math.hypot(dx,dy) < 18) net.send({type:"jumpInput"});
+        return;
+      }
+      const track = tracks[trackAt(x0)];
+      if(!track || track.isBot) return;
+      if(Math.abs(dx) > 26 && Math.abs(dx) > Math.abs(dy)) switchLane(track, dx>0?1:-1);
+      else if(dy < -22 || Math.hypot(dx,dy) < 18) jump(track);
+    }
+    function onTouchStart(e){ e.preventDefault(); for(const t of e.changedTouches) touchStarts[t.identifier]=localPos(t); }
+    function onTouchMove(e){ e.preventDefault(); }
+    function onTouchEnd(e){
+      e.preventDefault();
+      for(const t of e.changedTouches){
+        const st = touchStarts[t.identifier]; if(!st) continue;
+        const p = localPos(t);
+        applyGesture(st.x, p.x-st.x, p.y-st.y);
+        delete touchStarts[t.identifier];
+      }
+    }
+    let mouseStart=null;
+    function onMouseDown(e){
+      const rect=canvas.getBoundingClientRect(); const sx=W/rect.width, sy=H/rect.height;
+      mouseStart = {x:(e.clientX-rect.left)*sx, y:(e.clientY-rect.top)*sy};
+    }
+    function onMouseUp(e){
+      if(!mouseStart) return;
+      const rect=canvas.getBoundingClientRect(); const sx=W/rect.width, sy=H/rect.height;
+      const x=(e.clientX-rect.left)*sx, y=(e.clientY-rect.top)*sy;
+      applyGesture(mouseStart.x, x-mouseStart.x, y-mouseStart.y);
+      mouseStart=null;
+    }
+    canvas.addEventListener("touchstart", onTouchStart, {passive:false});
+    canvas.addEventListener("touchmove", onTouchMove, {passive:false});
+    canvas.addEventListener("touchend", onTouchEnd, {passive:false});
+    canvas.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
+
+    let keyLock = {};
+    function handleKeys(){
+      if(phase!=="playing") return;
+      if(mode==="online" && !net.isHost){
+        if(input.keys["KeyA"] && !keyLock.KeyA) net.send({type:"laneInput", d:-1});
+        if(input.keys["KeyD"] && !keyLock.KeyD) net.send({type:"laneInput", d:1});
+        if(input.keys["KeyW"] && !keyLock.KeyW) net.send({type:"jumpInput"});
+        if(input.keys["ArrowLeft"] && !keyLock.ArrowLeft) net.send({type:"laneInput", d:-1});
+        if(input.keys["ArrowRight"] && !keyLock.ArrowRight) net.send({type:"laneInput", d:1});
+        if((input.keys["ArrowUp"]&&!keyLock.ArrowUp)||(input.keys["Space"]&&!keyLock.Space)) net.send({type:"jumpInput"});
+        ["KeyA","KeyD","KeyW","ArrowLeft","ArrowRight","ArrowUp","Space"].forEach(k=> keyLock[k]=!!input.keys[k]);
+        return;
+      }
+      const t0 = tracks[0];
+      if(t0 && !t0.isBot){
+        if(input.keys["KeyA"] && !keyLock.KeyA) switchLane(t0,-1);
+        if(input.keys["KeyD"] && !keyLock.KeyD) switchLane(t0,1);
+        if(input.keys["KeyW"] && !keyLock.KeyW) jump(t0);
+        if(mode!=="2p"){
+          if(input.keys["ArrowLeft"] && !keyLock.ArrowLeft) switchLane(t0,-1);
+          if(input.keys["ArrowRight"] && !keyLock.ArrowRight) switchLane(t0,1);
+          if((input.keys["ArrowUp"]&&!keyLock.ArrowUp)||(input.keys["Space"]&&!keyLock.Space)) jump(t0);
+        }
+      }
+      if(mode==="2p" && tracks[1]){
+        const t1=tracks[1];
+        if(input.keys["ArrowLeft"] && !keyLock.ArrowLeft) switchLane(t1,-1);
+        if(input.keys["ArrowRight"] && !keyLock.ArrowRight) switchLane(t1,1);
+        if((input.keys["ArrowUp"]&&!keyLock.ArrowUp)||(input.keys["Space"]&&!keyLock.Space)) jump(t1);
+      }
+      ["KeyA","KeyD","KeyW","ArrowLeft","ArrowRight","ArrowUp","Space"].forEach(k=> keyLock[k]=!!input.keys[k]);
+    }
+
+    function selectMode(m){
+      mode=m; phase="playing"; sound.click();
+      const pad=14;
+      if(mode==="solo"){
+        tracks = [ makeTrack(0, W, false, true) ];
+      } else {
+        const colW = (W-pad*3)/2;
+        tracks = [ makeTrack(pad, colW, false, mode==="robot"), makeTrack(pad*2+colW, colW, mode==="robot", false) ];
+      }
+    }
+
+    function finish(idx){
+      if(phase==="finished") return;
+      phase="finished"; winnerIdx=idx; finishTimer=1.2;
+      if(idx===0) sound.win(); else sound.gameover();
+    }
+
+    function update(dt){
+      if(phase==="select"){
+        if(input.pointer.justDown){
+          const p={x:input.pointer.x,y:input.pointer.y};
+          if(p.y>H*0.36 && p.y<H*0.36+64) selectMode("solo");
+          else if(p.y>H*0.36+76 && p.y<H*0.36+76+64){ if(p.x<W/2) selectMode("robot"); else selectMode("2p"); }
+          else if(net.connected && p.y>H*0.36+76+76 && p.y<H*0.36+76+76+54){ selectMode("online"); net.send({type:"selectOnline"}); }
+          input.pointer.justDown=false;
+        }
+        return;
+      }
+      if(phase==="finished"){
+        if(mode==="online" && !net.isHost){
+          if(!netFinishStarted){ netFinishStarted=true; netFinishTimer=1.2; }
+          netFinishTimer -= dt;
+          if(netFinishTimer<=0){ netFinishTimer=999; setTimeout(()=>endGame({win:winnerIdx===1}),50); }
+          return;
+        }
+        finishTimer -= dt;
+        if(finishTimer<=0){ finishTimer=999; setTimeout(()=>endGame({win:winnerIdx===0}),50); }
+        return;
+      }
+      if(mode==="online" && !net.isHost){
+        handleKeys();
+        return;
+      }
+      handleKeys();
+      for(const t of tracks) updateTrack(t, dt);
+      if(mode!=="solo") for(const t of tracks) if(t.isBot) botAI(t, dt);
+      particles.update(dt);
+
+      if(mode==="solo"){
+        const t = tracks[0];
+        setScore(Math.floor(t.distance/8));
+        if(!t.alive && !soloOver){ soloOver=true; soloOverTimer=0.9; }
+        if(soloOver){ soloOverTimer-=dt; if(soloOverTimer<=0){ soloOverTimer=999; setTimeout(()=>endGame({win:false}),50); } }
+      } else {
+        const t0=tracks[0], t1=tracks[1];
+        setScore(Math.floor(Math.max(t0.distance,t1.distance)/8));
+        if(phase==="playing"){
+          if(t0.distance>=GOAL_DIST && t0.alive) finish(0);
+          else if(t1.distance>=GOAL_DIST && t1.alive) finish(1);
+          else if(!t0.alive && t1.alive) finish(1);
+          else if(!t1.alive && t0.alive) finish(0);
+          else if(!t0.alive && !t1.alive) finish(-1);
+        }
+      }
+
+      if(mode==="online" && net.isHost){
+        netSendTimer -= dt;
+        if(netSendTimer<=0){
+          netSendTimer = 0.05;
+          const snap = (t)=>({x:t.x,y:t.y,lane:t.lane,targetLane:t.targetLane,alive:t.alive,distance:t.distance,onGround:t.onGround,obstacles:t.obstacles.map(o=>({lane:o.lane,y:o.y,tall:o.tall,w:o.w,h:o.h}))});
+          net.send({type:"state", t0:snap(tracks[0]), t1:snap(tracks[1]), phase, winnerIdx});
+        }
+      }
+    }
+
+    function drawTrack(ctx, track, label){
+      ctx.save();
+      ctx.beginPath(); ctx.rect(track.x0,0,track.colW,H); ctx.clip();
+      ctx.fillStyle="#111726"; ctx.fillRect(track.x0,0,track.colW,H);
+      for(let l=1;l<LANES;l++){
+        ctx.strokeStyle="rgba(255,255,255,0.08)"; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(track.x0+l*track.laneW,0); ctx.lineTo(track.x0+l*track.laneW,H); ctx.stroke();
+      }
+      ctx.fillStyle="#0a1a15"; ctx.fillRect(track.x0,track.groundY+20,track.colW,H-track.groundY-20);
+      for(const o of track.obstacles){
+        const ox = track.x0+o.lane*track.laneW+track.laneW/2;
+        ctx.fillStyle = o.tall ? "#ff8a3a" : "#ffe23f";
+        ctx.fillRect(ox-o.w/2, o.y-o.h, o.w, o.h);
+      }
+      ctx.fillStyle = track.isBot ? "#ff8a3a" : "#3ff0ff";
+      const py = track.groundY+track.y;
+      ctx.fillRect(track.x-13, py-30, 26, 30);
+      if(!track.alive){ ctx.fillStyle="rgba(3,5,12,0.5)"; ctx.fillRect(track.x0,0,track.colW,H); }
+      ctx.restore();
+      ctx.fillStyle="#eaf2ff"; ctx.font="11px monospace"; ctx.textAlign="center";
+      ctx.fillText(label, track.x0+track.colW/2, 16);
+      if(mode!=="solo"){
+        const pct = Math.min(100, Math.floor(track.distance/GOAL_DIST*100));
+        ctx.fillText(pct+"%", track.x0+track.colW/2, H-8);
+      }
+      ctx.textAlign="left";
+    }
+
+    function draw(ctx){
+      ctx.fillStyle="#0b0f1e"; ctx.fillRect(0,0,W,H);
+      if(phase==="select"){
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 20px monospace"; ctx.textAlign="center";
+        ctx.fillText("🏃 TEMPLE DASH", W/2, H*0.26);
+        ctx.font="12px monospace"; ctx.fillStyle="#8ea0c8";
+        ctx.fillText("لِین عوض کن، بپر، از موانع رد شو!", W/2, H*0.26+26);
+
+        ctx.fillStyle="#1a2340"; roundRect(ctx,20,H*0.36,W-40,64,10); ctx.fill();
+        ctx.strokeStyle="#3dff8a"; ctx.lineWidth=2; roundRect(ctx,20,H*0.36,W-40,64,10); ctx.stroke();
+        ctx.fillStyle="#eaf2ff"; ctx.font="bold 15px monospace";
+        ctx.fillText("🧍 تک نفره", W/2, H*0.36+38);
+
+        const y2=H*0.36+76;
+        ctx.fillStyle="#1a2340";
+        roundRect(ctx,20,y2,W/2-30,64,10); ctx.fill();
+        roundRect(ctx,W/2+10,y2,W/2-30,64,10); ctx.fill();
+        ctx.strokeStyle="#ff8a3a"; roundRect(ctx,20,y2,W/2-30,64,10); ctx.stroke();
+        ctx.strokeStyle="#3ff0ff"; roundRect(ctx,W/2+10,y2,W/2-30,64,10); ctx.stroke();
+        ctx.fillStyle="#eaf2ff";
+        ctx.fillText("🤖 با ربات", W/4+5, y2+38);
+        ctx.fillText("👥 دو نفره", W*0.75+5, y2+38);
+        ctx.font="10px monospace"; ctx.fillStyle="#8ea0c8";
+        ctx.fillText("لمس: چپ/راست=لِین، ضربه/بالا=پرش", W/2, H*0.36+64+40);
+        ctx.textAlign="left";
+        if(net.connected){
+          const y3 = H*0.36+76+76;
+          ctx.fillStyle="#1a2340"; roundRect(ctx,20,y3,W-40,54,10); ctx.fill();
+          ctx.strokeStyle="#3dff8a"; ctx.lineWidth=2; roundRect(ctx,20,y3,W-40,54,10); ctx.stroke();
+          ctx.fillStyle="#3dff8a"; ctx.font="bold 15px monospace"; ctx.textAlign="center";
+          ctx.fillText("🌐 دو نفره آنلاین (با دوستت)", W/2, y3+33);
+          ctx.textAlign="left";
+        }
+        return;
+      }
+      const myTrackIdx = net.isHost ? 0 : 1;
+      for(const t of tracks) drawTrack(ctx, t, mode==="solo"?"شما": mode==="online" ? (tracks.indexOf(t)===myTrackIdx?"شما":"دوست") : (t.isBot?"🤖 ربات": t===tracks[0]?"شما":"بازیکن ۲"));
+      particles.draw(ctx);
+      if(phase==="finished"){
+        ctx.fillStyle="rgba(3,5,12,0.55)"; ctx.fillRect(0,0,W,H);
+        ctx.fillStyle = winnerIdx===0 ? "#3dff8a" : "#ff3fb0";
+        ctx.font="bold 22px monospace"; ctx.textAlign="center";
+        let label;
+        if(winnerIdx===-1) label = "مساوی!";
+        else if(mode==="online") label = (winnerIdx===myTrackIdx) ? "شما برنده شدید!" : "دوست برنده شد!";
+        else if(winnerIdx===0) label = "شما برنده شدید!";
+        else label = mode==="2p" ? "بازیکن ۲ برنده شد!" : "ربات برنده شد!";
+        ctx.fillText(label, W/2, H/2);
+        ctx.textAlign="left";
+      }
+    }
+
+    return { update, draw, destroy(){
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchmove", onTouchMove);
+      canvas.removeEventListener("touchend", onTouchEnd);
+      canvas.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mouseup", onMouseUp);
+      tracks=[]; particles.clear();
+    } };
+  }
+
+  window.__registerGame({
+    id:"temple-dash", name:"Temple Dash",
+    desc:"بدو، لِین عوض کن و از موانع بپر — تک‌نفره، با ربات یا دونفره.",
+    color:"#ffe23f", drawIcon, init
+  });
+})();
+
+/* ---------------- Boot ---------------- */
+window.__hubReady();
+
+})();
+</script>
+</body>
+</html>
