@@ -667,20 +667,47 @@ const Input = {
 /* ---------------- NET: online 2-player connection (PeerJS) ---------------- */
 const PEER_ICE_CONFIG = {
   config: {
+    iceTransportPolicy: "relay",
     iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
       {
         urls: [
           "turn:openrelay.metered.ca:80",
+          "turn:openrelay.metered.ca:80?transport=tcp",
           "turn:openrelay.metered.ca:443",
           "turn:openrelay.metered.ca:443?transport=tcp"
         ],
         username: "openrelayproject",
         credential: "openrelayproject"
+      },
+      {
+        urls: [
+          "turn:relay1.expressturn.com:3478",
+          "turn:relay1.expressturn.com:3478?transport=tcp"
+        ],
+        username: "efZIL2X6BTA0R7A25M",
+        credential: "gT2A1uJ8fFcNRLMk"
       }
     ]
   }
 };
+function netAttachDebug(conn, statusElId){
+  const timeout = setTimeout(()=>{
+    if(!NET.connected) netSetStatus(statusElId, "❌ وصل نشد (۲۰ ثانیه گذشت). شبکه/اپراتور اجازه نمی‌ده.");
+  }, 20000);
+  const pc = conn.peerConnection;
+  if(pc){
+    pc.oniceconnectionstatechange = ()=>{
+      if(!NET.connected) netSetStatus(statusElId, "وضعیت اتصال: " + pc.iceConnectionState);
+      if(pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed"){
+        clearTimeout(timeout);
+      }
+      if(pc.iceConnectionState === "failed"){
+        netSetStatus(statusElId, "❌ اتصال شکست خورد (failed) — شبکه/اپراتور مسدود می‌کنه.");
+      }
+    };
+  }
+  conn.on("open", ()=> clearTimeout(timeout));
+}
 const NET = {
   peer: null, conn: null, isHost: false, connected: false,
   _handler: null,
@@ -730,6 +757,7 @@ document.getElementById("netHostBtn").addEventListener("click", ()=>{
   });
   NET.peer.on("connection", c=>{
     NET.conn = c; NET.isHost = true;
+    netAttachDebug(c, "netStatus2");
     c.on("open", netOnConnected);
   });
   NET.peer.on("error", err=> netSetStatus("netStatus", "خطا: "+err.type));
@@ -744,6 +772,7 @@ document.getElementById("netJoinBtn").addEventListener("click", ()=>{
   NET.peer.on("open", ()=>{
     NET.conn = NET.peer.connect(code);
     NET.isHost = false;
+    netAttachDebug(NET.conn, "netStatus");
     NET.conn.on("open", netOnConnected);
     NET.conn.on("error", ()=> netSetStatus("netStatus", "اتصال ناموفق بود."));
   });
