@@ -665,6 +665,22 @@ const Input = {
 };
 
 /* ---------------- NET: online 2-player connection (PeerJS) ---------------- */
+const PEER_ICE_CONFIG = {
+  config: {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      {
+        urls: [
+          "turn:openrelay.metered.ca:80",
+          "turn:openrelay.metered.ca:443",
+          "turn:openrelay.metered.ca:443?transport=tcp"
+        ],
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      }
+    ]
+  }
+};
 const NET = {
   peer: null, conn: null, isHost: false, connected: false,
   _handler: null,
@@ -705,7 +721,7 @@ document.getElementById("netHostBtn").addEventListener("click", ()=>{
   document.getElementById("netHostBtn").disabled = true;
   document.getElementById("netJoinBtn").disabled = true;
   netSetStatus("netStatus", "در حال ساخت سرور...");
-  NET.peer = new Peer();
+  NET.peer = new Peer(undefined, PEER_ICE_CONFIG);
   NET.peer.on("open", id=>{
     document.getElementById("netRoomCode").textContent = id;
     document.getElementById("netStep1").style.display = "none";
@@ -724,7 +740,7 @@ document.getElementById("netJoinBtn").addEventListener("click", ()=>{
   document.getElementById("netHostBtn").disabled = true;
   document.getElementById("netJoinBtn").disabled = true;
   netSetStatus("netStatus", "در حال اتصال...");
-  NET.peer = new Peer();
+  NET.peer = new Peer(undefined, PEER_ICE_CONFIG);
   NET.peer.on("open", ()=>{
     NET.conn = NET.peer.connect(code);
     NET.isHost = false;
