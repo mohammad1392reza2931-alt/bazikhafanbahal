@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>PIXEL MINI GAMES</title>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
   :root{
     --bg-0:#0a0e1a;
@@ -664,56 +663,16 @@ const Input = {
   }
 };
 
-/* ---------------- NET: online 2-player connection (PeerJS) ---------------- */
-const PEER_ICE_CONFIG = {
-  config: {
-    iceTransportPolicy: "relay",
-    iceServers: [
-      {
-        urls: [
-          "turn:openrelay.metered.ca:80",
-          "turn:openrelay.metered.ca:80?transport=tcp",
-          "turn:openrelay.metered.ca:443",
-          "turn:openrelay.metered.ca:443?transport=tcp"
-        ],
-        username: "openrelayproject",
-        credential: "openrelayproject"
-      },
-      {
-        urls: [
-          "turn:relay1.expressturn.com:3478",
-          "turn:relay1.expressturn.com:3478?transport=tcp"
-        ],
-        username: "efZIL2X6BTA0R7A25M",
-        credential: "gT2A1uJ8fFcNRLMk"
-      }
-    ]
-  }
-};
-function netAttachDebug(conn, statusElId){
-  const timeout = setTimeout(()=>{
-    if(!NET.connected) netSetStatus(statusElId, "❌ وصل نشد (۲۰ ثانیه گذشت). شبکه/اپراتور اجازه نمی‌ده.");
-  }, 20000);
-  const pc = conn.peerConnection;
-  if(pc){
-    pc.oniceconnectionstatechange = ()=>{
-      if(!NET.connected) netSetStatus(statusElId, "وضعیت اتصال: " + pc.iceConnectionState);
-      if(pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed"){
-        clearTimeout(timeout);
-      }
-      if(pc.iceConnectionState === "failed"){
-        netSetStatus(statusElId, "❌ اتصال شکست خورد (failed) — شبکه/اپراتور مسدود می‌کنه.");
-      }
-    };
-  }
-  conn.on("open", ()=> clearTimeout(timeout));
-}
+/* ---------------- NET: online 2-player connection (WebSocket relay server) ---------------- */
+// آدرس سرور رندرت رو اینجا بذار (بعد از دیپلوی). باید با wss:// شروع بشه.
+const WS_SERVER_URL = "wss://YOUR-RENDER-APP.onrender.com";
+
 const NET = {
-  peer: null, conn: null, isHost: false, connected: false,
+  ws: null, isHost: false, connected: false,
   _handler: null,
   setHandler(fn){ this._handler = fn; },
   clearHandler(){ this._handler = null; },
-  send(obj){ if(this.conn && this.connected){ try{ this.conn.send(obj); }catch(e){} } },
+  send(obj){ if(this.ws && this.connected){ try{ this.ws.send(JSON.stringify({type:"data", payload:obj})); }catch(e){} } },
   onData(data){
     if(data.type === "net:launch"){
       const def = GAMES.find(g=>g.id===data.gameId);
@@ -725,17 +684,54 @@ const NET = {
   }
 };
 function netSetStatus(el, msg){ const e=document.getElementById(el); if(e) e.textContent = msg; }
+function netResetButtons(){
+  document.getElementById("netHostBtn").disabled = false;
+  document.getElementById("netJoinBtn").disabled = false;
+}
 function netOnConnected(){
   NET.connected = true;
   document.getElementById("netOverlay").classList.remove("active");
   document.getElementById("netBadge").style.display = "block";
   document.getElementById("netBtn").textContent = "🌐 وصل ✅";
-  NET.conn.on("data", d=>NET.onData(d));
-  NET.conn.on("close", ()=>{
-    NET.connected = false;
-    document.getElementById("netBadge").style.display = "none";
-    document.getElementById("netBtn").textContent = "🌐 آنلاین";
-    alert("ارتباط با دوستت قطع شد ❌");
+}
+function netOnDisconnected(showAlert){
+  const wasConnected = NET.connected;
+  NET.connected = false;
+  document.getElementById("netBadge").style.display = "none";
+  document.getElementById("netBtn").textContent = "🌐 آنلاین";
+  if(wasConnected && showAlert) alert("ارتباط با دوستت قطع شد ❌");
+}
+function netConnectSocket(onOpen, onFail){
+  let opened = false;
+  try{
+    NET.ws = new WebSocket(WS_SERVER_URL);
+  }catch(e){ onFail && onFail(); return; }
+  NET.ws.addEventListener("open", ()=>{ opened = true; onOpen && onOpen(); });
+  NET.ws.addEventListener("error", ()=>{ if(!opened){ onFail && onFail(); } });
+  NET.ws.addEventListener("message", (ev)=>{
+    let msg;
+    try{ msg = JSON.parse(ev.data); }catch(e){ return; }
+    if(msg.type === "hosted"){
+      document.getElementById("netRoomCode").textContent = msg.code;
+      document.getElementById("netStep1").style.display = "none";
+      document.getElementById("netStep2").style.display = "block";
+      netSetStatus("netStatus2", "منتظر اتصال دوستت...");
+    } else if(msg.type === "peer-connected"){
+      netOnConnected();
+    } else if(msg.type === "joined"){
+      netOnConnected();
+    } else if(msg.type === "join-error"){
+      netSetStatus("netStatus", "کد اشتباهه یا اتاق پره/بسته‌ست.");
+      netResetButtons();
+    } else if(msg.type === "peer-disconnected"){
+      netOnDisconnected(true);
+    } else if(msg.type === "data"){
+      NET.onData(msg.payload);
+    }
+  });
+  NET.ws.addEventListener("close", ()=>{
+    if(NET.connected) netOnDisconnected(true);
+    else { netSetStatus("netStatus", "اتصال به سرور برقرار نشد."); netResetButtons(); }
   });
 }
 document.getElementById("netBtn").addEventListener("click", ()=>{
@@ -748,19 +744,11 @@ document.getElementById("netHostBtn").addEventListener("click", ()=>{
   document.getElementById("netHostBtn").disabled = true;
   document.getElementById("netJoinBtn").disabled = true;
   netSetStatus("netStatus", "در حال ساخت سرور...");
-  NET.peer = new Peer(undefined, PEER_ICE_CONFIG);
-  NET.peer.on("open", id=>{
-    document.getElementById("netRoomCode").textContent = id;
-    document.getElementById("netStep1").style.display = "none";
-    document.getElementById("netStep2").style.display = "block";
-    netSetStatus("netStatus2", "منتظر اتصال دوستت...");
-  });
-  NET.peer.on("connection", c=>{
-    NET.conn = c; NET.isHost = true;
-    netAttachDebug(c, "netStatus2");
-    c.on("open", netOnConnected);
-  });
-  NET.peer.on("error", err=> netSetStatus("netStatus", "خطا: "+err.type));
+  NET.isHost = true;
+  netConnectSocket(
+    ()=>{ NET.ws.send(JSON.stringify({type:"host"})); },
+    ()=>{ netSetStatus("netStatus", "❌ اتصال به سرور ناموفق بود."); netResetButtons(); }
+  );
 });
 document.getElementById("netJoinBtn").addEventListener("click", ()=>{
   const code = document.getElementById("netCodeInput").value.trim();
@@ -768,15 +756,11 @@ document.getElementById("netJoinBtn").addEventListener("click", ()=>{
   document.getElementById("netHostBtn").disabled = true;
   document.getElementById("netJoinBtn").disabled = true;
   netSetStatus("netStatus", "در حال اتصال...");
-  NET.peer = new Peer(undefined, PEER_ICE_CONFIG);
-  NET.peer.on("open", ()=>{
-    NET.conn = NET.peer.connect(code);
-    NET.isHost = false;
-    netAttachDebug(NET.conn, "netStatus");
-    NET.conn.on("open", netOnConnected);
-    NET.conn.on("error", ()=> netSetStatus("netStatus", "اتصال ناموفق بود."));
-  });
-  NET.peer.on("error", ()=> netSetStatus("netStatus", "کد اشتباهه یا مشکل اینترنته."));
+  NET.isHost = false;
+  netConnectSocket(
+    ()=>{ NET.ws.send(JSON.stringify({type:"join", code})); },
+    ()=>{ netSetStatus("netStatus", "❌ اتصال به سرور ناموفق بود."); netResetButtons(); }
+  );
 });
 
 /* ---------------- Canvas / responsive sizing ---------------- */
