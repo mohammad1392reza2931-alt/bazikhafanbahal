@@ -1,5 +1,5 @@
 {
-  "name": "game-relay-worker",
+  "name": "bazikhafanbahalkhoob",
   "main": "worker.js",
   "compatibility_date": "2026-09-18",
   "durable_objects": {
@@ -8,6 +8,6 @@
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_classes": ["Relay"] }
+    { "tag": "v1", "new_sqlite_classes": ["Relay"] }
   ]
 }
