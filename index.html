@@ -2137,7 +2137,7 @@ function collidesWithObstacle(x,z,radius){
 
 // ---------- Game loop ----------
 /* ---------------- Co-op networking (reuses the same relay server as the mini-games hub) ---------------- */
-const WS_SERVER_URL = "wss://bazikhafanbahal-1.onrender.com";
+const WS_SERVER_URL = "wss://bazikhafanbahalkhoob.astyw79.workers.dev";
 const NET = { ws:null, connected:false };
 function netSetStatus(id, msg){ const e=document.getElementById(id); if(e) e.textContent = msg; }
 function netSend(obj){ if(NET.ws && NET.connected){ try{ NET.ws.send(JSON.stringify({type:'data', payload:obj})); }catch(e){} } }
