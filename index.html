@@ -312,6 +312,12 @@
         <button class="smallBtn" id="resetLayoutBtn">↺ بازنشانی چیدمان</button>
       </div>
     </div>
+    <div class="settingsRow">
+      <label>اسم بازیکن: <span id="usernameVal">-</span></label>
+      <div class="settingsBtnRow">
+        <button class="smallBtn" id="changeUsernameBtn">✏️ تغییر اسم</button>
+      </div>
+    </div>
     <button class="bigBtn" id="settingsCloseBtn">بستن</button>
   </div>
 
@@ -1653,6 +1659,7 @@ function openSettings(){
   settingsOpen = true;
   sensSlider.value = sensitivityMul;
   sensVal.textContent = sensitivityMul.toFixed(2) + 'x';
+  document.getElementById('usernameVal').textContent = getUsername();
   settingsOverlay.style.display = 'flex';
 }
 function closeSettings(){
@@ -1665,6 +1672,17 @@ sensSlider.addEventListener('input', function(){
   sensitivityMul = parseFloat(sensSlider.value);
   sensVal.textContent = sensitivityMul.toFixed(2) + 'x';
 });
+function changeUsername(){
+  const cur = getUsername();
+  const next = (prompt('اسم جدید بازیکن رو وارد کن:', cur) || '').trim().slice(0,20);
+  if(next){
+    localStorage.setItem(USERNAME_KEY, next);
+    document.getElementById('usernameVal').textContent = next;
+    loadFromServer();
+  }
+}
+document.getElementById('changeUsernameBtn').addEventListener('click', changeUsername);
+document.getElementById('changeUsernameBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); changeUsername(); }, {passive:false});
 document.getElementById('settingsCloseBtn').addEventListener('click', closeSettings);
 document.getElementById('settingsCloseBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); closeSettings(); }, {passive:false});
 
