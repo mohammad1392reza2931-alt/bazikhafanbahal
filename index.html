@@ -210,6 +210,8 @@
   #waveBanner .wnum { font-size:46px; color:#5ad8ff; font-weight:bold; letter-spacing:2px; }
   #waveBanner .wsub { font-size:15px; color:#ddd; }
 
+  #eventToast { position:absolute; top:96px; left:50%; transform:translateX(-50%); max-width:86%; text-align:center; background:rgba(15,22,32,0.92);
+    border:2px solid #ffd23f; color:#ffd23f; padding:8px 16px; border-radius:10px; font-weight:bold; font-size:13px; opacity:0; transition:opacity 0.25s; pointer-events:none; z-index:30; }
   #killFeed { position:absolute; top:60px; left:10px; font-size:12px; color:#ffd23f; text-shadow:0 1px 3px #000; }
 
   /* Shop overlay */
@@ -306,6 +308,7 @@
   </div>
 
   <div id="killFeed"></div>
+  <div id="eventToast"></div>
   <div id="crateHint">📦 جعبه مهمات نزدیک است!</div>
   <div id="downedOverlay">
     <div class="dTitle">⚠️ زمین خوردی!</div>
@@ -408,9 +411,15 @@
     <div id="missionsList"></div>
   </div>
 
+  <button class="bigBtn" id="lobbyEventBtn" style="margin-top:0; margin-bottom:14px; padding:14px 26px; font-size:16px; line-height:1.3;">🎉 ایونت هفتگی</button>
+
   <button class="bigBtn" id="lobbyShopBtn" style="margin-top:0; margin-bottom:14px; background:linear-gradient(180deg,#c77dff,#7b2ff7);">🛒 فروشگاه الماس</button>
 
   <button class="bigBtn" id="lobbyEnterBtn" style="margin-top:0;">▶ ورود به میدان نبرد</button>
+</div>
+
+<div class="overlay hidden" id="eventOverlay" style="display:none; overflow-y:auto; justify-content:flex-start; padding-top:26px;">
+  <div id="eventContent" style="width:100%; display:flex; flex-direction:column; align-items:center;"></div>
 </div>
 
 <div class="overlay hidden" id="shopLobbyOverlay" style="display:none; overflow-y:auto; justify-content:flex-start; padding-top:26px;">
@@ -1042,6 +1051,30 @@ const WEAPONS = [
   {key:'rpg',    name:'RPG',     short:'RPG', mag:1,  dmgBody:95, dmgHead:95, cooldown:1450,reloadTime:2600, pellets:1, spread:0.002,  color:0x4a5a35, bodyLen:0.95, barrelLen:0.2,  barrelRad:0.075, price:260, unlocked:false, splash:true, splashRadius:5.5, splashDamage:150},
   {key:'flamethrower', name:'Flamethrower', short:'FT', mag:140, dmgBody:5, dmgHead:6, cooldown:35, reloadTime:2400, pellets:1, spread:0.09, color:0x555045, bodyLen:0.5, barrelLen:0.3, barrelRad:0.05, price:150, unlocked:false, range:9},
 ];
+/* ---------- Weekly event themes: each has an exclusive player skin, weapon skin and weapon ---------- */
+const EVENT_THEMES = [
+  { id:'neon', name:'طوفان نئون', emoji:'⚡', accent:'#00b8d4',
+    playerSkin:{id:'ev_neon_p', label:'⚡ سایبر نئونی', color:0x00e5ff},
+    weaponSkin:{id:'ev_neon_w', label:'⚡ پلاسمای نئونی', color:0x00e5ff},
+    weaponDesc:'تفنگ پلاسما؛ آتش سریع با آسیب بالا',
+    weapon:{key:'ev_plasma', name:'Plasma Rifle', short:'PL', mag:32, dmgBody:22, dmgHead:48, cooldown:105, reloadTime:1500, pellets:1, spread:0.008, color:0x00b8d4, bodyLen:0.66, barrelLen:0.4, barrelRad:0.024, price:0, unlocked:false} },
+  { id:'frost', name:'لژیون یخی', emoji:'❄️', accent:'#4fb6e0',
+    playerSkin:{id:'ev_frost_p', label:'❄️ سرباز یخی', color:0x8fd8ff},
+    weaponSkin:{id:'ev_frost_w', label:'❄️ یخ‌زده', color:0xb5ecff},
+    weaponDesc:'توپ یخی؛ ساچمه‌های سرد با برد متوسط',
+    weapon:{key:'ev_frost', name:'Frost Cannon', short:'FC', mag:8, dmgBody:11, dmgHead:17, cooldown:620, reloadTime:1800, pellets:7, spread:0.10, color:0x6fc3e6, bodyLen:0.58, barrelLen:0.26, barrelRad:0.045, price:0, unlocked:false} },
+  { id:'inferno', name:'شب آتشین', emoji:'🔥', accent:'#e2551c',
+    playerSkin:{id:'ev_inferno_p', label:'🔥 جنگجوی آتشین', color:0xff5a1f},
+    weaponSkin:{id:'ev_inferno_w', label:'🔥 مذاب', color:0xff6a2b},
+    weaponDesc:'مگنوم آتشین؛ هر گلوله یک ضربه‌ی سنگین',
+    weapon:{key:'ev_inferno', name:'Inferno Magnum', short:'IM', mag:6, dmgBody:64, dmgHead:130, cooldown:380, reloadTime:1500, pellets:1, spread:0.003, color:0xb3320f, bodyLen:0.5, barrelLen:0.38, barrelRad:0.032, price:0, unlocked:false} },
+  { id:'toxic', name:'شیوع سمی', emoji:'☣️', accent:'#5fbf1a',
+    playerSkin:{id:'ev_toxic_p', label:'☣️ بازمانده سمی', color:0x7dff2a},
+    weaponSkin:{id:'ev_toxic_w', label:'☣️ اسیدی', color:0x7dff2a},
+    weaponDesc:'پرتاب‌گر سمی؛ انفجار ناحیه‌ای روی چند دشمن',
+    weapon:{key:'ev_toxic', name:'Toxic Launcher', short:'TL', mag:2, dmgBody:110, dmgHead:110, cooldown:1200, reloadTime:2300, pellets:1, spread:0.002, color:0x4c8a1c, bodyLen:0.9, barrelLen:0.22, barrelRad:0.07, price:0, unlocked:false, splash:true, splashRadius:6, splashDamage:170} },
+];
+EVENT_THEMES.forEach(t=>{ WEAPONS.push(Object.assign({event:t.id}, t.weapon)); });
 const WEAPONS_DEFAULT = WEAPONS.map(w=>({dmgBody:w.dmgBody, dmgHead:w.dmgHead, reloadTime:w.reloadTime, unlocked:w.unlocked, splashDamage:w.splashDamage}));
 let weaponIndex = 0;
 let ammoState = WEAPONS.map(w=>({ammo:w.mag, reloading:false, timer:null, reserve: w.melee ? Infinity : Math.round(w.mag*3*(window.AMMO_MULT||1))}));
@@ -1090,6 +1123,10 @@ const ENEMY_SKINS = [
   {id:'robot',  label:'رباتیک آبی',      tint:0x3ac0d6, cost:40},
   {id:'inferno',label:'شعله‌ای قرمز',    tint:0xd63a1a, cost:60},
 ];
+EVENT_THEMES.forEach(t=>{
+  PLAYER_SKINS.push(Object.assign({event:t.id, cost:0}, t.playerSkin));
+  WEAPON_SKINS.push(Object.assign({event:t.id, cost:0}, t.weaponSkin));
+});
 function defaultSave(){
   return {
     diamonds: 0,
@@ -1101,6 +1138,8 @@ function defaultSave(){
     upgrades: {hp:0, speed:0, dmg:0, ammo:0},
     skins: {player:'default', weapon:'default', enemy:'default'},
     ownedSkins: {player:['default'], weapon:['default'], enemy:['default']},
+    ownedWeapons: [],
+    event: null,
   };
 }
 function loadSave(){
@@ -1188,6 +1227,102 @@ function saveGame(){
   clearTimeout(syncTimer);
   syncTimer = setTimeout(syncSaveToServer, 1200);
 }
+/* ================= WEEKLY EVENT ENGINE ================= */
+// The event runs for the WHOLE week (Saturday 00:00 -> next Saturday 00:00, local time) and every player gets the same theme.
+// Players can finish + claim the event missions any time until the week ends; a new theme starts on the next week.
+const EVENT_WEEK_START_DOW = 6;  // 0=Sunday ... 6=Saturday (start of the Iranian week)
+const EVENT_LENGTH_DAYS = 7;
+const EVENT_MISSION_DEFS = [
+  {id:'m1', type:'kills',      target:40,  desc:'۴۰ دشمن نابود کن',                     reward:{kind:'diamonds', amount:30}},
+  {id:'m2', type:'gameplayed', target:4,   desc:'۴ بازی رو تموم کن',                     reward:{kind:'weaponSkin'}},
+  {id:'m3', type:'wave',       target:7,   desc:'در یک بازی به موج ۷ برس',               reward:{kind:'playerSkin'}},
+  {id:'m4', type:'coop',       target:2,   desc:'۲ بازی دو نفره (Co-op) انجام بده',      reward:{kind:'diamonds', amount:50}},
+  {id:'m5', type:'headshot',   target:30,  desc:'۳۰ بار به سر دشمن بزن',                 reward:{kind:'diamonds', amount:40}},
+  {id:'m6', type:'kills',      target:200, desc:'۲۰۰ دشمن نابود کن (کل هفته)',           reward:{kind:'weapon'}},
+];
+function getEventInfo(){
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  start.setDate(start.getDate() - ((start.getDay() - EVENT_WEEK_START_DOW + 7) % 7));
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + EVENT_LENGTH_DAYS);
+  const dayNum = Math.round(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()) / 86400000);
+  const n = EVENT_THEMES.length;
+  let idx = ((Math.floor(dayNum/7) % n) + n) % n;
+  let key = start.getFullYear()+'-'+(start.getMonth()+1)+'-'+start.getDate();
+  // preview a specific theme while testing:  index.html?event=neon|frost|inferno|toxic
+  try{
+    const forced = new URLSearchParams(location.search).get('event');
+    const fi = EVENT_THEMES.findIndex(t=>t.id===forced);
+    if(fi>=0){ idx = fi; key = 'preview-'+forced; }
+  }catch(e){}
+  return { key, theme:EVENT_THEMES[idx], end, msLeft:Math.max(0, end-now) };
+}
+function ensureEventState(){
+  const info = getEventInfo();
+  if(!Array.isArray(SAVE.ownedWeapons)) SAVE.ownedWeapons = [];
+  if(!SAVE.event || typeof SAVE.event!=='object' || SAVE.event.key !== info.key){
+    SAVE.event = { key:info.key, progress:{}, claimed:{}, seen:false };   // new week -> fresh missions
+    saveGame();
+  }
+  if(!SAVE.event.progress) SAVE.event.progress = {};
+  if(!SAVE.event.claimed) SAVE.event.claimed = {};
+  return info;
+}
+function applyEventWeaponUnlocks(){
+  if(!Array.isArray(SAVE.ownedWeapons)) return;
+  WEAPONS.forEach(w=>{ if(w.event && SAVE.ownedWeapons.includes(w.key)) w.unlocked = true; });
+}
+let eventToastTimer = null;
+function showEventToast(msg){
+  const el = document.getElementById('eventToast');
+  if(!el) return;
+  el.textContent = msg; el.style.opacity = '1';
+  clearTimeout(eventToastTimer);
+  eventToastTimer = setTimeout(()=>{ el.style.opacity='0'; }, 3200);
+}
+function trackEventProgress(type, amount, isMax){
+  ensureEventState();
+  const p = SAVE.event.progress;
+  const before = p[type] || 0;
+  p[type] = isMax ? Math.max(before, amount) : before + amount;
+  if(p[type] === before) return;
+  EVENT_MISSION_DEFS.forEach(m=>{
+    if(m.type===type && !SAVE.event.claimed[m.id] && before < m.target && p[type] >= m.target){
+      showEventToast('🎉 ماموریت ایونت کامل شد! جایزه‌ات توی پایگاه منتظره');
+    }
+  });
+  saveGame();
+}
+function eventMissionProgress(m){ return Math.min(m.target, (SAVE.event.progress[m.type]||0)); }
+function eventRewardLabel(m, t){
+  const r = m.reward;
+  if(r.kind==='diamonds') return '💎 ' + r.amount;
+  if(r.kind==='weaponSkin') return '🎨 ' + t.weaponSkin.label;
+  if(r.kind==='playerSkin') return '🧍 ' + t.playerSkin.label;
+  return '🔫 ' + t.weapon.name;
+}
+function claimEventMission(id){
+  const info = ensureEventState();
+  const m = EVENT_MISSION_DEFS.find(x=>x.id===id);
+  if(!m || SAVE.event.claimed[id]) return;
+  if(info.msLeft <= 0) return;
+  if((SAVE.event.progress[m.type]||0) < m.target) return;
+  const t = info.theme, r = m.reward;
+  if(r.kind==='diamonds') SAVE.diamonds += r.amount;
+  else if(r.kind==='weaponSkin'){ if(!SAVE.ownedSkins.weapon.includes(t.weaponSkin.id)) SAVE.ownedSkins.weapon.push(t.weaponSkin.id); }
+  else if(r.kind==='playerSkin'){ if(!SAVE.ownedSkins.player.includes(t.playerSkin.id)) SAVE.ownedSkins.player.push(t.playerSkin.id); }
+  else if(r.kind==='weapon'){ if(!SAVE.ownedWeapons.includes(t.weapon.key)) SAVE.ownedWeapons.push(t.weapon.key); applyEventWeaponUnlocks(); }
+  SAVE.event.claimed[id] = true;
+  saveGame();
+  renderEventOverlay();
+  renderLobby();
+}
+function equipEventSkin(cat, id){
+  if(!SAVE.ownedSkins[cat] || !SAVE.ownedSkins[cat].includes(id)) return;
+  SAVE.skins[cat] = id;
+  saveGame();
+  renderEventOverlay();
+}
 function ensureDailyMissions(){
   const t = todayStr();
   if(SAVE.missionsDate !== t){
@@ -1204,6 +1339,7 @@ function ensureDailyMissions(){
 }
 function trackMissionEvent(type, amount){
   ensureDailyMissions();
+  trackEventProgress(type, amount);
   let changed = false;
   SAVE.missions.forEach(m=>{
     if(m.type===type && !m.claimed && m.progress<m.target){
@@ -1215,6 +1351,7 @@ function trackMissionEvent(type, amount){
 }
 function trackMissionWave(waveNum){
   ensureDailyMissions();
+  trackEventProgress('wave', waveNum, true);
   let changed = false;
   SAVE.missions.forEach(m=>{
     if(m.type==='wave' && !m.claimed){
@@ -1262,6 +1399,7 @@ function buySkin(cat, id){
   const list = cat==='player'?PLAYER_SKINS:cat==='weapon'?WEAPON_SKINS:ENEMY_SKINS;
   const item = list.find(x=>x.id===id);
   if(!item) return;
+  if(item.event && !SAVE.ownedSkins[cat].includes(id)) return; // event items are only earned through event missions
   if(SAVE.ownedSkins[cat].includes(id)){
     SAVE.skins[cat] = id;
   } else {
@@ -1296,6 +1434,7 @@ function rebuildGunModel(){
 }
 
 let enemyIdCounter = 1;
+const clientCountedKills = new Set(); // guest: enemy ids already counted for missions (avoids double counting re-synced enemies)
 let remotePlayer = null; // {x,y,z,yaw,hp,weaponIndex,alive}
 let remoteAvatar = null; // THREE.Group
 // ammo crates falling from the sky
@@ -1548,6 +1687,10 @@ function killEnemy(e, awardScore){
   }
   const idx = enemies.indexOf(e);
   if(idx>=0) enemies.splice(idx,1);
+  if(awardScore && gameMode==='coopClient' && !clientCountedKills.has(e.id)){
+    clientCountedKills.add(e.id);
+    trackMissionEvent('kills', 1);
+  }
   if(gameMode==='coopClient') return; // client: wave/shop progression is host-driven
   if(enemiesAliveCount<=0 && !gameOver){
     coins += 15 + wave*5; // wave-clear bonus
@@ -1670,6 +1813,7 @@ function closeShop(){
 
 // ---------- Co-op shop: open for both players after a wave, gate the next wave until both are ready ----------
 let hostReady = false, clientReady = false, localReady = false, pendingBuyId = null;
+let coopShopWave = -1; // guest: wave number of the shop currently open (used to detect a missed 'nextWave')
 function openCoopShop(){
   hostReady = false; clientReady = false; localReady = false;
   openShop();
@@ -1680,6 +1824,7 @@ function checkBothReady(){
   if(hostReady && clientReady){
     hostReady = false; clientReady = false;
     document.getElementById('coopWaitOverlay').style.display = 'none';
+    shopOpen = false; // FIX: the host's shop pause flag was never cleared -> enemies + host froze for both players
     startWave(wave+1);
     netSend({t:'nextWave', wave});
   }
@@ -2233,6 +2378,7 @@ function buildWeaponBar(){
   const bar = document.getElementById('weaponBar');
   bar.innerHTML = '';
   WEAPONS.forEach((w,i)=>{
+    if(w.event && !w.unlocked) return; // event weapons only show up once earned
     const btn = document.createElement('div');
     btn.className = 'wbtn' + (i===weaponIndex ? ' active' : '') + (!w.unlocked ? ' locked' : '');
     btn.dataset.i = i;
@@ -2434,7 +2580,8 @@ function updateAmmoUI(){
   const reserveEl = document.getElementById('ammoReserve');
   reserveEl.textContent = weapon.melee ? '' : ('ذخیره: ' + ammoS.reserve);
   reserveEl.classList.toggle('zero', !weapon.melee && ammoS.reserve<=0);
-  document.querySelectorAll('.wbtn').forEach((btn,i)=>{
+  document.querySelectorAll('.wbtn').forEach(btn=>{
+    const i = +btn.dataset.i;
     btn.classList.toggle('active', i===weaponIndex);
     btn.classList.toggle('locked', !WEAPONS[i].unlocked);
   });
@@ -2632,6 +2779,7 @@ function netOnData(data){
   } else if(data.t === 'waveClear' && gameMode==='coopClient'){
     // host cleared the wave — open the shop here too so both players can buy before the next wave
     wave = data.wave; coins = data.coins;
+    coopShopWave = data.wave;
     document.getElementById('waveVal').textContent = wave;
     updateCoinUI();
     openShop();
@@ -2648,6 +2796,8 @@ function netOnData(data){
     document.getElementById('shopOverlay').style.display = 'none';
     document.getElementById('coopWaitOverlay').style.display = 'none';
     wave = data.wave;
+    coopShopWave = -1;
+    trackMissionWave(wave);
     document.getElementById('waveVal').textContent = wave;
     showCoopWaveBanner(wave);
   } else if(data.t === 'buyReq' && gameMode==='coopHost'){
@@ -2674,6 +2824,12 @@ function netOnData(data){
   }
 }
 function applyEnemySnapshot(data){
+  // safety net: if the host already moved on to a newer wave but our 'nextWave' message was missed, un-pause here
+  if(shopOpen && coopShopWave >= 0 && data.wave > coopShopWave){
+    shopOpen = false; coopShopWave = -1;
+    document.getElementById('shopOverlay').style.display = 'none';
+    document.getElementById('coopWaitOverlay').style.display = 'none';
+  }
   wave = data.wave; score = data.score; coins = data.coins;
   document.getElementById('waveVal').textContent = wave;
   document.getElementById('scoreVal').textContent = score;
@@ -2782,8 +2938,83 @@ function renderLobby(){
     row.appendChild(btn);
     list.appendChild(row);
   });
+  renderEventCard();
 }
+function fmtLeft(ms){
+  const d = Math.floor(ms/86400000), h = Math.floor((ms%86400000)/3600000), m = Math.floor((ms%3600000)/60000);
+  return d>0 ? d+' روز و '+h+' ساعت' : h+' ساعت و '+m+' دقیقه';
+}
+function hex6(n){ return '#'+n.toString(16).padStart(6,'0'); }
+function renderEventCard(){
+  const btn = document.getElementById('lobbyEventBtn');
+  if(!btn) return;
+  const info = ensureEventState(), t = info.theme;
+  let ready = 0;
+  EVENT_MISSION_DEFS.forEach(m=>{ if(!SAVE.event.claimed[m.id] && (SAVE.event.progress[m.type]||0) >= m.target) ready++; });
+  btn.style.background = 'linear-gradient(135deg,'+t.accent+',#141c2b)';
+  btn.style.color = '#fff';
+  btn.style.textShadow = '0 1px 3px #000';
+  btn.innerHTML = '<div>'+t.emoji+' ایونت هفته: '+t.name+(SAVE.event.seen?'':' 🆕')+'</div>'+
+    '<div style="font-size:12px;font-weight:normal;margin-top:5px;">⏳ '+fmtLeft(info.msLeft)+' تا پایان هفته'+(ready?' • 🎁 '+ready+' جایزه آماده':'')+'</div>';
+}
+function renderEventOverlay(){
+  const info = ensureEventState(), t = info.theme, box = document.getElementById('eventContent');
+  const ownP = SAVE.ownedSkins.player.includes(t.playerSkin.id);
+  const ownW = SAVE.ownedSkins.weapon.includes(t.weaponSkin.id);
+  const ownG = SAVE.ownedWeapons.includes(t.weapon.key);
+  const tile = (title, sub, swatch, owned, equipped, act, id)=>
+    '<div style="flex:1;min-width:0;background:rgba(255,255,255,0.06);border:1px solid '+(owned?t.accent:'rgba(255,255,255,0.12)')+';border-radius:10px;padding:10px 6px;font-size:11px;">'+
+      '<div style="width:34px;height:34px;border-radius:50%;margin:0 auto 6px;background:'+swatch+';box-shadow:0 0 12px '+swatch+';'+(owned?'':'opacity:0.45;')+'"></div>'+
+      '<div style="color:#fff;font-size:12px;">'+title+'</div>'+
+      '<div style="color:#8ea0c8;margin:3px 0 6px;">'+sub+'</div>'+
+      (owned ? (act ? (equipped?'<div style="color:#2ecc71;">✔ فعال</div>':'<button class="smallBtn" data-act="'+act+'" data-id="'+id+'" style="padding:5px 10px;background:#2ecc71;color:#04250f;">تجهیز</button>') : '<div style="color:#2ecc71;">✔ مال توئه</div>')
+             : '<div style="color:#ffd23f;">🔒 با ماموریت</div>')+
+    '</div>';
+  let html = '<h1 style="font-size:26px;color:'+t.accent+';text-shadow:0 0 18px '+t.accent+';">'+t.emoji+' '+t.name+'</h1>'+
+    '<div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:8px 16px;margin-bottom:12px;font-size:14px;color:#ffd23f;font-weight:bold;">⏳ '+fmtLeft(info.msLeft)+' تا پایان هفته فرصت داری</div>'+
+    '<div style="width:100%;max-width:400px;">'+
+    '<div style="display:flex;gap:8px;margin-bottom:14px;">'+
+      tile(t.playerSkin.label, 'اسکین بازیکن', hex6(t.playerSkin.color), ownP, SAVE.skins.player===t.playerSkin.id, 'equipP', t.playerSkin.id)+
+      tile(t.weaponSkin.label, 'اسکین سلاح', hex6(t.weaponSkin.color), ownW, SAVE.skins.weapon===t.weaponSkin.id, 'equipW', t.weaponSkin.id)+
+      tile(t.weapon.name, t.weaponDesc, hex6(t.weapon.color), ownG, false, '', '')+
+    '</div>'+
+    '<h3 style="color:#9ff;font-size:14px;margin:0 0 8px;text-align:right;">📋 ماموریت‌های ایونت</h3>';
+  EVENT_MISSION_DEFS.forEach(m=>{
+    const prog = eventMissionProgress(m), done = prog>=m.target, claimed = !!SAVE.event.claimed[m.id];
+    const pct = Math.round(prog/m.target*100);
+    html += '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.05);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:13px;">'+
+      '<div style="text-align:right;flex:1;">'+
+        '<div style="color:#fff;">'+m.desc+'</div>'+
+        '<div style="height:6px;background:rgba(255,255,255,0.12);border-radius:3px;margin:5px 0 3px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+t.accent+';"></div></div>'+
+        '<div style="color:#8ea0c8;font-size:11px;">'+prog+'/'+m.target+' — '+eventRewardLabel(m,t)+'</div>'+
+      '</div>'+
+      '<button class="smallBtn" '+((claimed||!done)?'disabled':'data-act="claim" data-id="'+m.id+'"')+' style="flex-shrink:0;padding:8px 12px;'+(claimed?'opacity:0.4;':done?'background:#2ecc71;color:#04250f;':'opacity:0.5;')+'">'+(claimed?'✅':done?'دریافت':'...')+'</button>'+
+    '</div>';
+  });
+  html += '<p style="font-size:11px;color:#8ea0c8;margin-top:8px;max-width:none;text-align:right;">جایزه‌های دریافت‌نشده با تموم شدن هفته از بین می‌رن؛ ولی چیزهایی که گرفتی برای همیشه مال توئه. هفته‌ی بعد ایونت جدید شروع می‌شه.</p></div>'+
+    '<button class="bigBtn" id="eventCloseBtn" style="background:#333;color:#fff;box-shadow:0 6px 0 #111;margin-top:14px;">بازگشت به پایگاه</button>';
+  box.innerHTML = html;
+  document.getElementById('eventCloseBtn').addEventListener('click', showLobby);
+}
+function openEventOverlay(){
+  ensureEventState();
+  SAVE.event.seen = true;
+  saveGame();
+  document.getElementById('lobbyOverlay').style.display = 'none';
+  document.getElementById('eventOverlay').style.display = 'flex';
+  renderEventOverlay();
+}
+document.getElementById('lobbyEventBtn').addEventListener('click', openEventOverlay);
+document.getElementById('eventContent').addEventListener('click', ev=>{
+  const b = ev.target.closest('[data-act]');
+  if(!b || b.disabled) return;
+  const act = b.dataset.act, id = b.dataset.id;
+  if(act==='claim') claimEventMission(id);
+  else if(act==='equipP') equipEventSkin('player', id);
+  else if(act==='equipW') equipEventSkin('weapon', id);
+});
 function showLobby(){
+  document.getElementById('eventOverlay').style.display = 'none';
   document.getElementById('startOverlay').style.display = 'none';
   document.getElementById('netOverlay').style.display = 'none';
   document.getElementById('shopLobbyOverlay').style.display = 'none';
@@ -2816,6 +3047,18 @@ function shopRow(label, subLabel, btnLabel, btnEnabled, onClick, owned){
   row.appendChild(btn);
   return row;
 }
+function addSkinRows(c, cat, list){
+  const info = getEventInfo();
+  list.forEach(sk=>{
+    const owned = SAVE.ownedSkins[cat].includes(sk.id);
+    const equipped = SAVE.skins[cat]===sk.id;
+    if(sk.event && !owned){
+      if(sk.event === info.theme.id) c.appendChild(shopRow(sk.label, 'فقط با ماموریت‌های ایونت این هفته', '🔒', false, ()=>{}, false));
+      return; // skins of other events stay hidden until earned
+    }
+    c.appendChild(shopRow(sk.label, owned?(equipped?'فعال':'مالکشی'):`هزینه: 💎${sk.cost}`, equipped?'فعال':owned?'استفاده':`💎${sk.cost}`, !equipped && (owned || SAVE.diamonds>=sk.cost), ()=>buySkin(cat, sk.id), owned));
+  });
+}
 function renderShopLobby(){
   document.getElementById('shopLobbyDiamonds').textContent = SAVE.diamonds;
   const c = document.getElementById('shopLobbyContent');
@@ -2837,25 +3080,13 @@ function renderShopLobby(){
   });
   const h2 = document.createElement('h3'); h2.style.cssText='color:#9ff;font-size:14px;margin:14px 0 6px;text-align:right;'; h2.textContent='🧍 اسکین بازیکن';
   c.appendChild(h2);
-  PLAYER_SKINS.forEach(s=>{
-    const owned = SAVE.ownedSkins.player.includes(s.id);
-    const equipped = SAVE.skins.player===s.id;
-    c.appendChild(shopRow(s.label, owned?(equipped?'فعال':'مالکشی'):`هزینه: 💎${s.cost}`, equipped?'فعال':owned?'استفاده':`💎${s.cost}`, !equipped && (owned || SAVE.diamonds>=s.cost), ()=>buySkin('player', s.id), owned));
-  });
+  addSkinRows(c, 'player', PLAYER_SKINS);
   const h3 = document.createElement('h3'); h3.style.cssText='color:#9ff;font-size:14px;margin:14px 0 6px;text-align:right;'; h3.textContent='🔫 اسکین سلاح';
   c.appendChild(h3);
-  WEAPON_SKINS.forEach(s=>{
-    const owned = SAVE.ownedSkins.weapon.includes(s.id);
-    const equipped = SAVE.skins.weapon===s.id;
-    c.appendChild(shopRow(s.label, owned?(equipped?'فعال':'مالکشی'):`هزینه: 💎${s.cost}`, equipped?'فعال':owned?'استفاده':`💎${s.cost}`, !equipped && (owned || SAVE.diamonds>=s.cost), ()=>buySkin('weapon', s.id), owned));
-  });
+  addSkinRows(c, 'weapon', WEAPON_SKINS);
   const h4 = document.createElement('h3'); h4.style.cssText='color:#9ff;font-size:14px;margin:14px 0 6px;text-align:right;'; h4.textContent='👹 اسکین دشمنان';
   c.appendChild(h4);
-  ENEMY_SKINS.forEach(s=>{
-    const owned = SAVE.ownedSkins.enemy.includes(s.id);
-    const equipped = SAVE.skins.enemy===s.id;
-    c.appendChild(shopRow(s.label, owned?(equipped?'فعال':'مالکشی'):`هزینه: 💎${s.cost}`, equipped?'فعال':owned?'استفاده':`💎${s.cost}`, !equipped && (owned || SAVE.diamonds>=s.cost), ()=>buySkin('enemy', s.id), owned));
-  });
+  addSkinRows(c, 'enemy', ENEMY_SKINS);
 }
 document.getElementById('lobbyShopBtn').addEventListener('click', ()=>{
   document.getElementById('lobbyOverlay').style.display = 'none';
@@ -2912,7 +3143,10 @@ function animate(){
   // clouds drift regardless of game state, for a bit of ambient life on menus too
   clouds.forEach(c=>{ c.position.x += c.userData.speed*dt; if(c.position.x > ARENA*1.3) c.position.x = -ARENA*1.3; });
 
-  if(gameStarted && !gameOver && !shopOpen && !settingsOpen){
+  // in co-op the host's simulation drives BOTH players, so opening the settings menu must not pause the world
+  const worldPaused = shopOpen || (settingsOpen && gameMode==='solo');
+  if(gameStarted && !gameOver && !worldPaused){
+   try{
     // camera rotation
     camHolder.rotation.y = yaw;
     pitchObj.rotation.x = pitch;
@@ -2929,7 +3163,7 @@ function animate(){
         netSend({t:'dead'});
         endGame(false, 'کسی به موقع نجاتت نداد — عملیات شکست خورد');
       }
-    } else {
+    } else if(!settingsOpen){
       // movement relative to yaw
       tmpForward.set(-Math.sin(yaw), 0, -Math.cos(yaw));
       tmpRight.set(Math.sin(yaw+Math.PI/2), 0, Math.cos(yaw+Math.PI/2));
@@ -3150,6 +3384,7 @@ function animate(){
         e.mesh.rotation.y = Math.atan2(dx, dz);
       }
     }
+  }catch(err){ console.error('animate error:', err); }
   }
 
   renderer.render(scene, camera);
@@ -3173,6 +3408,8 @@ function startGame(){
     w.unlocked = WEAPONS_DEFAULT[i].unlocked;
     if(w.splash) w.splashDamage = WEAPONS_DEFAULT[i].splashDamage;
   });
+  applyEventWeaponUnlocks();
+  clientCountedKills.clear();
   dmgUpgradeLevel = 0; reloadUpgradeLevel = 0;
   coins = 0;
   applyOwnedUpgradesToPlayer();
@@ -3196,6 +3433,7 @@ function startGame(){
   tracers.slice().forEach(t=>scene.remove(t.mesh));
   tracers.length = 0;
   weaponIndex = 0;
+  buildWeaponBar();
   ammoState = WEAPONS.map(w=>({ammo:w.mag, reloading:false, timer:null, reserve: w.melee ? Infinity : Math.round(w.mag*3*(window.AMMO_MULT||1))}));
   rebuildGunModel();
   score = 0;
@@ -3218,6 +3456,7 @@ function startGame(){
 }
 
 function endGame(won, customSub){
+  const wasCoop = gameMode!=='solo';
   gameOver = true;
   gameStarted = false;
   shopOpen = false;
@@ -3230,6 +3469,7 @@ function endGame(won, customSub){
   document.getElementById('gameOverOverlay').style.display = 'flex';
   if(gameMode!=='solo'){ netDisconnect(); gameMode='solo'; }
   trackMissionEvent('gameplayed', 1);
+  if(wasCoop && wave>=2) trackMissionEvent('coop', 1);
   if(score > (SAVE.bestScore||0)) SAVE.bestScore = score;
   saveGame();
   loadLeaderboard();
