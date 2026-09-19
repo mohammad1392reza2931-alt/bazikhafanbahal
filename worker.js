@@ -1,6 +1,7 @@
 // worker.js — Strike Zone backend
 //   * Durable Object "Relay": 2-player co-op relay over WebSocket (host / join / data)
-//   * D1 API:  POST /api/save   GET /api/load   GET /api/leaderboard   POST /api/submit
+//   * D1 API:  POST /api/login   POST /api/save   GET /api/leaderboard   POST /api/admin-grant (creator only)
+//   * Admin key: the ADMIN_KEY constant below (must match ADMIN_KEY in index-dev.html). If a Cloudflare secret named ADMIN_KEY exists it takes priority.
 //
 // The D1 database and the Durable Object namespace are found automatically among the
 // bindings, so their names in wrangler.jsonc don't matter.  The exported class name
@@ -146,25 +147,46 @@ async function handleLogin(request, DB) {
   return jsonResponse({ found: true, saveData });
 }
 
-// POST /api/submit  { username, score }
-async function handleSubmit(request, DB) {
-  let body;
-  try { body = await request.json(); } catch (e) { return jsonResponse({ error: "invalid json" }, 400); }
-  const username = String(body.username || "").trim().slice(0, 20);
-  const score = Number.isFinite(body.score) ? Math.max(0, Math.floor(body.score)) : 0;
-  if (!username) return jsonResponse({ error: "username required" }, 400);
-  await ensureSchema(DB);
-  await upsertScore(DB, username, score);
-  return jsonResponse({ ok: true });
-}
-
 // GET /api/leaderboard
 async function handleLeaderboard(DB) {
   await ensureSchema(DB);
   const { results } = await DB.prepare(
     "SELECT username, best_score FROM scores ORDER BY best_score DESC LIMIT 10"
   ).all();
-  return jsonResponse({ leaderboard: results });
+  // The game inserts usernames into the page as HTML, so neutralise any HTML characters here (a name like <img onerror=...> can't run code).
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const safe = (results || []).map((r) => ({ username: esc(r.username), best_score: Number(r.best_score) || 0 }));
+  return jsonResponse({ leaderboard: safe });
+}
+
+// ---------- admin (creator-only) tools ----------
+// Must match ADMIN_KEY in your private index-dev.html. Anyone who sees this file can use the endpoint, so keep the repo private
+// (or paste this file straight into Cloudflare without uploading it to a public GitHub repo).
+const ADMIN_KEY = "sz-creator-9f3ak2m7";
+
+// POST /api/admin-grant  { adminKey, username, diamonds }
+async function handleAdminGrant(request, DB, env) {
+  let body;
+  try { body = await request.json(); } catch (e) { return jsonResponse({ error: "invalid json" }, 400); }
+  const adminKey = String((env && env.ADMIN_KEY) || ADMIN_KEY);
+  if (!adminKey || String(body.adminKey || "") !== adminKey) return jsonResponse({ error: "forbidden" }, 403);
+  const username = String(body.username || "").trim().slice(0, 20);
+  const amount = Math.floor(Number(body.diamonds) || 0);
+  if (!username) return jsonResponse({ error: "username required" }, 400);
+  if (!amount) return jsonResponse({ error: "diamonds amount required" }, 400);
+
+  await ensureSchema(DB);
+  const row = await DB.prepare("SELECT save_data FROM player_saves WHERE username = ?").bind(username).first();
+  if (!row) return jsonResponse({ error: "player-not-found" }, 404);
+
+  let saveData;
+  try { saveData = JSON.parse(row.save_data); } catch (e) { return jsonResponse({ error: "corrupt-save" }, 500); }
+  saveData.diamonds = Math.max(0, Math.floor(saveData.diamonds || 0) + amount);
+  await DB.prepare(
+    `UPDATE player_saves SET save_data = ?, updated_at = ? WHERE username = ?`
+  ).bind(JSON.stringify(saveData), Date.now(), username).run();
+
+  return jsonResponse({ ok: true, newDiamondTotal: saveData.diamonds });
 }
 
 const NO_DB = () => jsonResponse({ error: "D1 database binding not found in this Worker" }, 500);
@@ -181,7 +203,7 @@ export default {
         const DB = getDB(env);
         if (url.pathname === "/api/save" && request.method === "POST") return DB ? await handleSave(request, DB) : NO_DB();
         if (url.pathname === "/api/login" && request.method === "POST") return DB ? await handleLogin(request, DB) : NO_DB();
-        if (url.pathname === "/api/submit" && request.method === "POST") return DB ? await handleSubmit(request, DB) : NO_DB();
+        if (url.pathname === "/api/admin-grant" && request.method === "POST") return DB ? await handleAdminGrant(request, DB, env) : NO_DB();
         if (url.pathname === "/api/leaderboard" && request.method === "GET") return DB ? await handleLeaderboard(DB) : NO_DB();
         return jsonResponse({ error: "not found" }, 404);
       }
