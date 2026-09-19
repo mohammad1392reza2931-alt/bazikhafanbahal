@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Strike Zone - FPS</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; -webkit-user-select:none; }
-  html,body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; font-family: 'Arial Narrow', Arial, sans-serif; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; font-family: 'Vazirmatn', 'Arial Narrow', Arial, sans-serif; }
   #gameCanvas { position:absolute; top:0; left:0; width:100%; height:100%; display:block; }
 
   #hud { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10; }
@@ -337,6 +338,13 @@
       <div class="settingsBtnRow">
         <button class="smallBtn" id="editLayoutBtn">✋ ویرایش چیدمان</button>
         <button class="smallBtn" id="resetLayoutBtn">↺ بازنشانی چیدمان</button>
+      </div>
+    </div>
+    <div class="settingsRow">
+      <label>زاویه دوربین</label>
+      <div class="settingsBtnRow">
+        <button class="smallBtn active" id="camFirstBtn">🎯 اول‌شخص</button>
+        <button class="smallBtn" id="camThirdBtn">🧍 سوم‌شخص</button>
       </div>
     </div>
     <div class="settingsRow">
@@ -2750,6 +2758,50 @@ function createRemoteAvatarMesh(skinId){
   g.userData.skinId = skinId;
   return g;
 }
+
+// ---------- Camera mode: first-person / third-person ----------
+let cameraMode = 'first';
+const THIRD_PERSON_OFFSET = new THREE.Vector3(0, 0.35, 3.1);
+let localAvatar = createRemoteAvatarMesh(SAVE.skins.player);
+localAvatar.visible = false;
+localAvatar.castShadow = true;
+scene.add(localAvatar);
+function refreshLocalAvatarSkin(){
+  const skin = PLAYER_SKINS.find(s=>s.id===SAVE.skins.player) || PLAYER_SKINS[0];
+  applyTintToGroup(localAvatar, skin.color);
+  localAvatar.userData.skinId = SAVE.skins.player;
+}
+function setCameraMode(mode){
+  cameraMode = mode;
+  const isThird = mode==='third';
+  localAvatar.visible = isThird;
+  gunGroup.visible = !isThird;
+  camera.position.set(0,0,0);
+  document.getElementById('camFirstBtn').classList.toggle('active', !isThird);
+  document.getElementById('camThirdBtn').classList.toggle('active', isThird);
+}
+function updateCameraRig(){
+  if(cameraMode==='third'){
+    if(localAvatar.userData.skinId !== SAVE.skins.player) refreshLocalAvatarSkin();
+    localAvatar.position.set(camHolder.position.x, camHolder.position.y - player.eyeHeight, camHolder.position.z);
+    localAvatar.rotation.y = yaw;
+    // pull the camera back/up behind the player's head; shrink distance if it would clip into geometry
+    let dist = THIRD_PERSON_OFFSET.z;
+    const dirX = Math.sin(yaw)*Math.cos(pitch), dirZ = Math.cos(yaw)*Math.cos(pitch);
+    for(let step=0; step<6; step++){
+      const testX = camHolder.position.x + dirX*dist;
+      const testZ = camHolder.position.z + dirZ*dist;
+      if(!collidesWithObstacle(testX, testZ, 0.4)) break;
+      dist *= 0.7;
+    }
+    camera.position.set(0, THIRD_PERSON_OFFSET.y, dist);
+  } else {
+    camera.position.set(0,0,0);
+  }
+}
+document.getElementById('camFirstBtn').addEventListener('click', ()=>setCameraMode('first'));
+document.getElementById('camThirdBtn').addEventListener('click', ()=>setCameraMode('third'));
+
 function netOnData(data){
   if(data.t === 'p'){
     remotePlayer = data;
@@ -3387,6 +3439,7 @@ function animate(){
   }catch(err){ console.error('animate error:', err); }
   }
 
+  updateCameraRig();
   renderer.render(scene, camera);
 }
 
