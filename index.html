@@ -4,10 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Strike Zone - FPS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; -webkit-user-select:none; }
-  html,body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; font-family: 'Vazirmatn', 'Arial Narrow', Arial, sans-serif; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; -webkit-user-select:none; font-family:'Vazirmatn','Vazir',Tahoma,Arial,sans-serif; }
+  button, input, select, textarea { font-family:'Vazirmatn','Vazir',Tahoma,Arial,sans-serif; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; font-family: 'Vazirmatn', 'Vazir', Tahoma, Arial, sans-serif; }
   #gameCanvas { position:absolute; top:0; left:0; width:100%; height:100%; display:block; }
 
   #hud { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10; }
@@ -417,6 +420,7 @@
   <div style="width:100%; max-width:380px; background:rgba(255,255,255,0.06); border-radius:10px; padding:12px; margin-bottom:14px;">
     <h3 style="color:#9ff; font-size:15px; margin:0 0 8px;">📋 ماموریت‌های امروز</h3>
     <div id="missionsList"></div>
+    <div style="font-size:10px; color:#8ea0c8; margin-top:4px;">با الماس می‌تونی ماموریت رو رد کنی، ولی جایزه‌ی اون ماموریت رو نمی‌گیری.</div>
   </div>
 
   <button class="bigBtn" id="lobbyEventBtn" style="margin-top:0; margin-bottom:14px; padding:14px 26px; font-size:16px; line-height:1.3;">🎉 ایونت هفتگی</button>
@@ -550,14 +554,21 @@ const crateTex = makeCanvasTexture(128, (ctx,s)=>{
   ctx.lineWidth = 3;
   for(let i=1;i<4;i++){ ctx.beginPath(); ctx.moveTo(i*s/4,0); ctx.lineTo(i*s/4,s); ctx.stroke(); }
 });
-const ammoCrateTex = makeCanvasTexture(128, (ctx,s)=>{
+function paintAmmoCrate(ctx,s){
   ctx.fillStyle = '#3a4a2c'; ctx.fillRect(0,0,s,s);
   ctx.strokeStyle = '#1e2617'; ctx.lineWidth = 7;
   ctx.strokeRect(4,4,s-8,s-8);
   ctx.fillStyle = '#ffcf3f';
-  ctx.font = 'bold 34px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font = "bold 34px 'Vazirmatn', Arial"; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('AMMO', s/2, s/2);
-});
+}
+const ammoCrateTex = makeCanvasTexture(128, paintAmmoCrate);
+if(document.fonts && document.fonts.load){
+  document.fonts.load("bold 34px 'Vazirmatn'", 'AMMO').then(()=>{
+    paintAmmoCrate(ammoCrateTex.image.getContext('2d'), 128);
+    ammoCrateTex.needsUpdate = true;
+  }).catch(()=>{});
+}
 
 // Weapon-surface textures: brushed gunmetal + rubberized grip
 const gunMetalTex = makeCanvasTexture(64, (ctx,s)=>{
@@ -1241,12 +1252,12 @@ function saveGame(){
 const EVENT_WEEK_START_DOW = 6;  // 0=Sunday ... 6=Saturday (start of the Iranian week)
 const EVENT_LENGTH_DAYS = 7;
 const EVENT_MISSION_DEFS = [
-  {id:'m1', type:'kills',      target:40,  desc:'۴۰ دشمن نابود کن',                     reward:{kind:'diamonds', amount:30}},
-  {id:'m2', type:'gameplayed', target:4,   desc:'۴ بازی رو تموم کن',                     reward:{kind:'weaponSkin'}},
-  {id:'m3', type:'wave',       target:7,   desc:'در یک بازی به موج ۷ برس',               reward:{kind:'playerSkin'}},
-  {id:'m4', type:'coop',       target:2,   desc:'۲ بازی دو نفره (Co-op) انجام بده',      reward:{kind:'diamonds', amount:50}},
-  {id:'m5', type:'headshot',   target:30,  desc:'۳۰ بار به سر دشمن بزن',                 reward:{kind:'diamonds', amount:40}},
-  {id:'m6', type:'kills',      target:200, desc:'۲۰۰ دشمن نابود کن (کل هفته)',           reward:{kind:'weapon'}},
+  {id:'m1', type:'kills',      target:40,  desc:'۴۰ دشمن نابود کن',                     reward:{kind:'diamonds', amount:30}, skip:60},
+  {id:'m2', type:'gameplayed', target:4,   desc:'۴ بازی رو تموم کن',                     reward:{kind:'weaponSkin'}, skip:80},
+  {id:'m3', type:'wave',       target:7,   desc:'در یک بازی به موج ۷ برس',               reward:{kind:'playerSkin'}, skip:100},
+  {id:'m4', type:'coop',       target:2,   desc:'۲ بازی دو نفره (Co-op) انجام بده',      reward:{kind:'diamonds', amount:50}, skip:120},
+  {id:'m5', type:'headshot',   target:30,  desc:'۳۰ بار به سر دشمن بزن',                 reward:{kind:'diamonds', amount:40}, skip:90},
+  {id:'m6', type:'kills',      target:200, desc:'۲۰۰ دشمن نابود کن (کل هفته)',           reward:{kind:'weapon'}, skip:250},
 ];
 function getEventInfo(){
   const now = new Date();
@@ -1269,11 +1280,12 @@ function ensureEventState(){
   const info = getEventInfo();
   if(!Array.isArray(SAVE.ownedWeapons)) SAVE.ownedWeapons = [];
   if(!SAVE.event || typeof SAVE.event!=='object' || SAVE.event.key !== info.key){
-    SAVE.event = { key:info.key, progress:{}, claimed:{}, seen:false };   // new week -> fresh missions
+    SAVE.event = { key:info.key, progress:{}, claimed:{}, skipped:{}, seen:false };   // new week -> fresh missions
     saveGame();
   }
   if(!SAVE.event.progress) SAVE.event.progress = {};
   if(!SAVE.event.claimed) SAVE.event.claimed = {};
+  if(!SAVE.event.skipped) SAVE.event.skipped = {};
   return info;
 }
 function applyEventWeaponUnlocks(){
@@ -1312,7 +1324,7 @@ function eventRewardLabel(m, t){
 function claimEventMission(id){
   const info = ensureEventState();
   const m = EVENT_MISSION_DEFS.find(x=>x.id===id);
-  if(!m || SAVE.event.claimed[id]) return;
+  if(!m || SAVE.event.claimed[id] || SAVE.event.skipped[id]) return;
   if(info.msLeft <= 0) return;
   if((SAVE.event.progress[m.type]||0) < m.target) return;
   const t = info.theme, r = m.reward;
@@ -1371,11 +1383,49 @@ function trackMissionWave(waveNum){
 }
 function claimMission(id){
   const m = SAVE.missions.find(x=>x.id===id);
-  if(!m || m.claimed || m.progress<m.target) return;
+  if(!m || m.claimed || m.skipped || m.progress<m.target) return;
   m.claimed = true;
   SAVE.diamonds += m.reward;
   saveGame();
   renderLobby();
+}
+/* ---------- Skip missions with diamonds (no reward is given for a skipped mission) ---------- */
+function dailySkipCost(m){ return (m.reward||0)*2 + 10; }
+function skipMission(id){
+  const m = SAVE.missions.find(x=>x.id===id);
+  if(!m || m.claimed || m.skipped || m.progress>=m.target) return;
+  const cost = dailySkipCost(m);
+  if(SAVE.diamonds < cost) return;
+  SAVE.diamonds -= cost;
+  m.claimed = true;   // treated as finished so it no longer tracks progress...
+  m.skipped = true;   // ...but flagged as skipped so it never pays a reward
+  saveGame();
+  renderLobby();
+}
+function skipEventMission(id){
+  const info = ensureEventState();
+  const m = EVENT_MISSION_DEFS.find(x=>x.id===id);
+  if(!m || SAVE.event.claimed[id] || SAVE.event.skipped[id]) return;
+  if(info.msLeft <= 0) return;
+  if((SAVE.event.progress[m.type]||0) >= m.target) return;   // already complete -> just claim it
+  if(SAVE.diamonds < m.skip) return;
+  SAVE.diamonds -= m.skip;
+  SAVE.event.claimed[id] = true;
+  SAVE.event.skipped[id] = true;
+  saveGame();
+  renderEventOverlay();
+  renderLobby();
+}
+// two-tap safety so a stray touch doesn't burn diamonds
+function tapToConfirm(btn, onConfirm){
+  if(btn.dataset.armed === '1'){ clearTimeout(btn._armTimer); btn.dataset.armed = ''; onConfirm(); return; }
+  const origHtml = btn.innerHTML, origBg = btn.style.background, origShadow = btn.style.boxShadow;
+  btn.dataset.armed = '1';
+  btn.innerHTML = '⚠️ مطمئنی؟<br>دوباره بزن';
+  btn.style.background = '#e74c3c'; btn.style.boxShadow = '0 3px 0 #9b2c20';
+  btn._armTimer = setTimeout(()=>{
+    btn.dataset.armed = ''; btn.innerHTML = origHtml; btn.style.background = origBg; btn.style.boxShadow = origShadow;
+  }, 3000);
 }
 function claimDaily(){
   if(SAVE.lastDaily === todayStr()) return;
@@ -2977,16 +3027,30 @@ function renderLobby(){
     const row = document.createElement('div');
     row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px; background:rgba(255,255,255,0.05); border-radius:8px; padding:8px 10px; margin-bottom:6px; font-size:13px;';
     const done = m.progress>=m.target;
+    const sub = m.skipped ? '⏭ با الماس رد شد — بدون جایزه' : `${m.progress}/${m.target} — 💎${m.reward}`;
     row.innerHTML = `<div style="text-align:right; flex:1;">
-        <div style="color:#fff;">${m.desc}</div>
-        <div style="color:#8ea0c8; font-size:11px;">${m.progress}/${m.target} — 💎${m.reward}</div>
+        <div style="color:${m.skipped?'#7d8899':'#fff'};${m.skipped?'text-decoration:line-through;':''}">${m.desc}</div>
+        <div style="color:#8ea0c8; font-size:11px;">${sub}</div>
       </div>`;
     const btn = document.createElement('button');
     btn.className = 'smallBtn';
-    btn.style.cssText = 'flex-shrink:0; padding:8px 12px;' + (m.claimed ? 'opacity:0.4;' : done ? 'background:#2ecc71;color:#04250f;' : 'opacity:0.5;');
-    btn.textContent = m.claimed ? '✅' : done ? 'دریافت' : '...';
-    btn.disabled = m.claimed || !done;
-    if(!m.claimed && done) btn.addEventListener('click', ()=>claimMission(m.id));
+    if(m.skipped){
+      btn.style.cssText = 'flex-shrink:0; padding:8px 12px; opacity:0.4;';
+      btn.textContent = '⏭'; btn.disabled = true;
+    } else if(m.claimed){
+      btn.style.cssText = 'flex-shrink:0; padding:8px 12px; opacity:0.4;';
+      btn.textContent = '✅'; btn.disabled = true;
+    } else if(done){
+      btn.style.cssText = 'flex-shrink:0; padding:8px 12px; background:#2ecc71;color:#04250f;';
+      btn.textContent = 'دریافت';
+      btn.addEventListener('click', ()=>claimMission(m.id));
+    } else {
+      const cost = dailySkipCost(m), can = SAVE.diamonds >= cost;
+      btn.style.cssText = 'flex-shrink:0; padding:7px 10px; font-size:11px; line-height:1.35; white-space:nowrap; background:#7b2ff7; box-shadow:0 3px 0 #4a1a9c;' + (can ? '' : 'opacity:0.4;');
+      btn.innerHTML = '⏭ رد کردن<br>💎 ' + cost;
+      btn.disabled = !can;
+      if(can) btn.addEventListener('click', ()=>tapToConfirm(btn, ()=>skipMission(m.id)));
+    }
     row.appendChild(btn);
     list.appendChild(row);
   });
@@ -3024,6 +3088,7 @@ function renderEventOverlay(){
     '</div>';
   let html = '<h1 style="font-size:26px;color:'+t.accent+';text-shadow:0 0 18px '+t.accent+';">'+t.emoji+' '+t.name+'</h1>'+
     '<div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:8px 16px;margin-bottom:12px;font-size:14px;color:#ffd23f;font-weight:bold;">⏳ '+fmtLeft(info.msLeft)+' تا پایان هفته فرصت داری</div>'+
+    '<div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:6px 16px;margin-bottom:12px;font-size:15px;color:#5ad8ff;font-weight:bold;">💎 '+SAVE.diamonds+'</div>'+
     '<div style="width:100%;max-width:400px;">'+
     '<div style="display:flex;gap:8px;margin-bottom:14px;">'+
       tile(t.playerSkin.label, 'اسکین بازیکن', hex6(t.playerSkin.color), ownP, SAVE.skins.player===t.playerSkin.id, 'equipP', t.playerSkin.id)+
@@ -3032,18 +3097,24 @@ function renderEventOverlay(){
     '</div>'+
     '<h3 style="color:#9ff;font-size:14px;margin:0 0 8px;text-align:right;">📋 ماموریت‌های ایونت</h3>';
   EVENT_MISSION_DEFS.forEach(m=>{
-    const prog = eventMissionProgress(m), done = prog>=m.target, claimed = !!SAVE.event.claimed[m.id];
+    const prog = eventMissionProgress(m), done = prog>=m.target, claimed = !!SAVE.event.claimed[m.id], skipped = !!SAVE.event.skipped[m.id];
     const pct = Math.round(prog/m.target*100);
+    const canSkip = SAVE.diamonds >= m.skip;
+    let btnHtml;
+    if(skipped) btnHtml = '<button class="smallBtn" disabled style="flex-shrink:0;padding:8px 12px;opacity:0.4;">⏭</button>';
+    else if(claimed) btnHtml = '<button class="smallBtn" disabled style="flex-shrink:0;padding:8px 12px;opacity:0.4;">✅</button>';
+    else if(done) btnHtml = '<button class="smallBtn" data-act="claim" data-id="'+m.id+'" style="flex-shrink:0;padding:8px 12px;background:#2ecc71;color:#04250f;">دریافت</button>';
+    else btnHtml = '<button class="smallBtn" data-act="skip" data-id="'+m.id+'"'+(canSkip?'':' disabled')+' style="flex-shrink:0;padding:7px 10px;font-size:11px;line-height:1.35;white-space:nowrap;background:#7b2ff7;box-shadow:0 3px 0 #4a1a9c;'+(canSkip?'':'opacity:0.4;')+'">⏭ رد کردن<br>💎 '+m.skip+'</button>';
     html += '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.05);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:13px;">'+
       '<div style="text-align:right;flex:1;">'+
-        '<div style="color:#fff;">'+m.desc+'</div>'+
-        '<div style="height:6px;background:rgba(255,255,255,0.12);border-radius:3px;margin:5px 0 3px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+t.accent+';"></div></div>'+
-        '<div style="color:#8ea0c8;font-size:11px;">'+prog+'/'+m.target+' — '+eventRewardLabel(m,t)+'</div>'+
+        '<div style="color:'+(skipped?'#7d8899':'#fff')+';'+(skipped?'text-decoration:line-through;':'')+'">'+m.desc+'</div>'+
+        (skipped ? '' : '<div style="height:6px;background:rgba(255,255,255,0.12);border-radius:3px;margin:5px 0 3px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+t.accent+';"></div></div>')+
+        '<div style="color:#8ea0c8;font-size:11px;'+(skipped?'margin-top:3px;':'')+'">'+(skipped ? '⏭ با الماس رد شد — بدون جایزه' : prog+'/'+m.target+' — '+eventRewardLabel(m,t))+'</div>'+
       '</div>'+
-      '<button class="smallBtn" '+((claimed||!done)?'disabled':'data-act="claim" data-id="'+m.id+'"')+' style="flex-shrink:0;padding:8px 12px;'+(claimed?'opacity:0.4;':done?'background:#2ecc71;color:#04250f;':'opacity:0.5;')+'">'+(claimed?'✅':done?'دریافت':'...')+'</button>'+
+      btnHtml+
     '</div>';
   });
-  html += '<p style="font-size:11px;color:#8ea0c8;margin-top:8px;max-width:none;text-align:right;">جایزه‌های دریافت‌نشده با تموم شدن هفته از بین می‌رن؛ ولی چیزهایی که گرفتی برای همیشه مال توئه. هفته‌ی بعد ایونت جدید شروع می‌شه.</p></div>'+
+  html += '<p style="font-size:11px;color:#8ea0c8;margin-top:8px;max-width:none;text-align:right;">با الماس می‌تونی ماموریت رو رد کنی، ولی جایزه‌ی اون ماموریت رو نمی‌گیری. جایزه‌های دریافت‌نشده با تموم شدن هفته از بین می‌رن؛ ولی چیزهایی که گرفتی برای همیشه مال توئه. هفته‌ی بعد ایونت جدید شروع می‌شه.</p></div>'+
     '<button class="bigBtn" id="eventCloseBtn" style="background:#333;color:#fff;box-shadow:0 6px 0 #111;margin-top:14px;">بازگشت به پایگاه</button>';
   box.innerHTML = html;
   document.getElementById('eventCloseBtn').addEventListener('click', showLobby);
@@ -3064,6 +3135,7 @@ document.getElementById('eventContent').addEventListener('click', ev=>{
   if(act==='claim') claimEventMission(id);
   else if(act==='equipP') equipEventSkin('player', id);
   else if(act==='equipW') equipEventSkin('weapon', id);
+  else if(act==='skip') tapToConfirm(b, ()=>skipEventMission(id));
 });
 function showLobby(){
   document.getElementById('eventOverlay').style.display = 'none';
