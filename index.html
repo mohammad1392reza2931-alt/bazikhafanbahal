@@ -179,6 +179,18 @@
   .bigBtn:active { transform:translateY(4px); box-shadow:0 2px 0 #1c8a2a; }
   #hidden { display:none; }
 
+  #usernameModalOverlay {
+    display:none; z-index:400;
+    position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(5,10,15,0.94);
+    flex-direction:column; align-items:center; justify-content:center; pointer-events:auto;
+    color:#fff; text-align:center; padding:20px;
+  }
+  #usernameModalInput {
+    margin-top:18px; width:80%; max-width:280px; padding:12px 14px; font-size:18px; text-align:center;
+    border-radius:8px; border:1.5px solid #5ad8ff; background:rgba(255,255,255,0.08); color:#fff; outline:none;
+  }
+  #usernameModalInput::placeholder { color:#789; }
+
   #waveBanner {
     position:absolute; top:38%; left:50%; transform:translate(-50%,-50%); color:#fff; text-align:center;
     text-shadow:0 0 15px rgba(0,0,0,0.8); pointer-events:none; opacity:0; transition:opacity 0.4s;
@@ -319,6 +331,13 @@
       </div>
     </div>
     <button class="bigBtn" id="settingsCloseBtn">بستن</button>
+  </div>
+
+  <div id="usernameModalOverlay">
+    <h1 style="color:#5ad8ff; font-size:24px;">اسم بازیکن</h1>
+    <p>اسم بازیکن خودتو وارد کن:</p>
+    <input type="text" id="usernameModalInput" maxlength="20" placeholder="مثلاً Ali">
+    <button class="bigBtn" id="usernameModalConfirm" style="margin-top:18px;">تأیید</button>
   </div>
 
   <div id="waveBanner">
@@ -1089,12 +1108,34 @@ let SAVE = loadSave();
 const API_BASE = "https://bazikhafanbahalkhoob.astyw79.workers.dev";
 const USERNAME_KEY = 'strikeZoneUsername';
 function getUsername(){
-  let u = localStorage.getItem(USERNAME_KEY);
-  if(!u){
-    u = (prompt('اسم بازیکن خودتو وارد کن:') || 'Player').trim().slice(0,20) || 'Player';
-    localStorage.setItem(USERNAME_KEY, u);
+  return localStorage.getItem(USERNAME_KEY) || 'Player';
+}
+function showUsernameModal(currentValue, onConfirm){
+  const overlay = document.getElementById('usernameModalOverlay');
+  const input = document.getElementById('usernameModalInput');
+  const confirmBtn = document.getElementById('usernameModalConfirm');
+  input.value = currentValue || '';
+  overlay.style.display = 'flex';
+  function submit(){
+    const val = input.value.trim().slice(0,20);
+    if(!val) return;
+    overlay.style.display = 'none';
+    confirmBtn.removeEventListener('click', submit);
+    input.removeEventListener('keydown', onKey);
+    onConfirm(val);
   }
-  return u;
+  function onKey(ev){ if(ev.key === 'Enter') submit(); }
+  confirmBtn.addEventListener('click', submit);
+  input.addEventListener('keydown', onKey);
+  setTimeout(()=>input.focus(), 50);
+}
+function ensureUsername(callback){
+  const existing = localStorage.getItem(USERNAME_KEY);
+  if(existing){ callback(existing); return; }
+  showUsernameModal('', function(val){
+    localStorage.setItem(USERNAME_KEY, val);
+    callback(val);
+  });
 }
 let syncTimer = null;
 function syncSaveToServer(){
@@ -1128,7 +1169,7 @@ async function loadLeaderboard(){
     }
   }catch(e){}
 }
-loadFromServer();
+ensureUsername(function(){ loadFromServer(); });
 
 function saveGame(){
   try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
@@ -1673,13 +1714,11 @@ sensSlider.addEventListener('input', function(){
   sensVal.textContent = sensitivityMul.toFixed(2) + 'x';
 });
 function changeUsername(){
-  const cur = getUsername();
-  const next = (prompt('اسم جدید بازیکن رو وارد کن:', cur) || '').trim().slice(0,20);
-  if(next){
-    localStorage.setItem(USERNAME_KEY, next);
-    document.getElementById('usernameVal').textContent = next;
+  showUsernameModal(getUsername(), function(val){
+    localStorage.setItem(USERNAME_KEY, val);
+    document.getElementById('usernameVal').textContent = val;
     loadFromServer();
-  }
+  });
 }
 document.getElementById('changeUsernameBtn').addEventListener('click', changeUsername);
 document.getElementById('changeUsernameBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); changeUsername(); }, {passive:false});
