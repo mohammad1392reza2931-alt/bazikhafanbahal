@@ -218,6 +218,12 @@
     background:linear-gradient(180deg,#7fff6a,#2ecc40); border:none; border-radius:8px; letter-spacing:1px;
     box-shadow:0 6px 0 #1c8a2a, 0 10px 20px rgba(0,0,0,0.5);
   }
+  #coopWaitOverlay { display:none; z-index:99; }
+  #coopWaitOverlay .spinner {
+    width:38px; height:38px; border-radius:50%; border:4px solid rgba(255,255,255,0.2); border-top-color:#5ad8ff;
+    animation:coopspin 0.8s linear infinite; margin-bottom:16px;
+  }
+  @keyframes coopspin { to { transform:rotate(360deg); } }
 
   /* Sniper scope overlay */
   #scopeOverlay {
@@ -237,6 +243,20 @@
   #crateHint {
     position:absolute; top:100px; left:50%; transform:translate(-50%,0); color:#ffd23f; font-size:13px;
     text-shadow:0 1px 3px #000; font-weight:bold; opacity:0; transition:opacity 0.3s; pointer-events:none;
+  }
+  #downedOverlay {
+    display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:25;
+    flex-direction:column; align-items:center; justify-content:center; pointer-events:none;
+    background:radial-gradient(circle, rgba(120,0,0,0) 40%, rgba(120,0,0,0.55) 100%);
+  }
+  #downedOverlay .dTitle { color:#ff4040; font-size:26px; font-weight:bold; text-shadow:0 2px 4px #000; }
+  #downedOverlay .dSub { color:#fff; font-size:14px; margin-top:8px; text-shadow:0 1px 3px #000; }
+  #downedOverlay .dTimer { color:#ffd23f; font-size:34px; font-weight:bold; margin-top:10px; text-shadow:0 2px 4px #000; }
+  #reviveBtn {
+    display:none; position:absolute; bottom:210px; left:50%; transform:translate(-50%,0); z-index:22;
+    align-items:center; justify-content:center; gap:6px; padding:12px 22px; border-radius:24px;
+    background:linear-gradient(135deg,#2ecc71,#1c8f4d); border:2px solid rgba(255,255,255,0.6);
+    color:#fff; font-weight:bold; font-size:14px; pointer-events:auto; box-shadow:0 4px 10px rgba(0,0,0,0.5);
   }
 </style>
 </head>
@@ -263,6 +283,12 @@
 
   <div id="killFeed"></div>
   <div id="crateHint">📦 جعبه مهمات نزدیک است!</div>
+  <div id="downedOverlay">
+    <div class="dTitle">⚠️ زمین خوردی!</div>
+    <div class="dSub">منتظر بمون تا دوستت نجاتت بده...</div>
+    <div class="dTimer"><span id="downedTimerVal">25</span>s</div>
+  </div>
+  <div id="reviveBtn">🤝 ریوایو دوستت</div>
   <div id="settingsBtn">⚙️</div>
   <div id="editModeHint">🖐 دکمه‌ها رو بکش و هرجا خواستی رها کن</div>
   <div id="doneEditBtn">✅ پایان ویرایش</div>
@@ -275,8 +301,8 @@
     <div class="settingsRow">
       <label>حالت جوی‌استیک</label>
       <div class="settingsBtnRow">
-        <button class="smallBtn active" id="joyModeFixedBtn">📍 ثابت</button>
-        <button class="smallBtn" id="joyModeDynamicBtn">👆 شناور (هرجا لمس کنی)</button>
+        <button class="smallBtn" id="joyModeFixedBtn">📍 ثابت</button>
+        <button class="smallBtn active" id="joyModeDynamicBtn">👆 شناور (هرجا لمس کنی)</button>
       </div>
     </div>
     <div class="settingsRow">
@@ -317,29 +343,54 @@
 
 <div class="overlay" id="shopOverlay">
   <h1>🛒 فروشگاه تجهیزات</h1>
-  <h2>موج <span id="shopWaveNum">1</span> تموم شد — قبل از موج بعدی خرید کن</h2>
+  <h2 id="shopSubtitle">موج <span id="shopWaveNum">1</span> تموم شد — قبل از موج بعدی خرید کن</h2>
   <div id="shopCoinRow"><span class="coinIcon"></span> <span id="shopCoinVal">0</span> سکه</div>
   <div id="shopGrid"></div>
   <button class="bigBtn" id="shopContinueBtn">ادامه به موج بعد</button>
 </div>
 
-<div class="overlay" id="startOverlay">
+<div class="overlay" id="coopWaitOverlay">
+  <div class="spinner"></div>
+  <h2>منتظر دوستت هستیم...</h2>
+  <p>دوستت هنوز داره خرید می‌کنه. به محض اینکه اونم دکمه «ادامه» رو بزنه، موج بعد شروع می‌شه.</p>
+</div>
+
+<div class="overlay" id="lobbyOverlay" style="overflow-y:auto; justify-content:flex-start; padding-top:26px;">
+  <h1 style="font-size:30px;">🏠 پایگاه اصلی</h1>
+  <div style="background:rgba(255,255,255,0.08); border-radius:10px; padding:10px 22px; margin-bottom:14px; font-size:20px; color:#5ad8ff; font-weight:bold;">
+    💎 <span id="lobbyDiamonds">0</span>
+  </div>
+
+  <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; justify-content:center;">
+    <button class="bigBtn" id="dailyRewardBtn" style="margin-top:0; padding:12px 20px; font-size:15px;">🎁 جایزه روزانه</button>
+    <button class="bigBtn" id="weeklyRewardBtn" style="margin-top:0; padding:12px 20px; font-size:15px; background:linear-gradient(180deg,#ffd23f,#d69a1c); color:#241a00;">🏆 جایزه هفتگی</button>
+  </div>
+
+  <div style="width:100%; max-width:380px; background:rgba(255,255,255,0.06); border-radius:10px; padding:12px; margin-bottom:14px;">
+    <h3 style="color:#9ff; font-size:15px; margin:0 0 8px;">📋 ماموریت‌های امروز</h3>
+    <div id="missionsList"></div>
+  </div>
+
+  <button class="bigBtn" id="lobbyShopBtn" style="margin-top:0; margin-bottom:14px; background:linear-gradient(180deg,#c77dff,#7b2ff7);">🛒 فروشگاه الماس</button>
+
+  <button class="bigBtn" id="lobbyEnterBtn" style="margin-top:0;">▶ ورود به میدان نبرد</button>
+</div>
+
+<div class="overlay hidden" id="shopLobbyOverlay" style="display:none; overflow-y:auto; justify-content:flex-start; padding-top:26px;">
+  <h1 style="font-size:26px;">🛒 فروشگاه الماس</h1>
+  <div style="background:rgba(255,255,255,0.08); border-radius:10px; padding:8px 18px; margin-bottom:14px; font-size:17px; color:#5ad8ff; font-weight:bold;">
+    💎 <span id="shopLobbyDiamonds">0</span>
+  </div>
+  <div id="shopLobbyContent" style="width:100%; max-width:400px;"></div>
+  <button class="bigBtn" id="shopLobbyCloseBtn" style="background:#333; margin-top:16px;">بازگشت به پایگاه</button>
+</div>
+
+<div class="overlay" id="startOverlay" style="display:none;">
   <h1>STRIKE ZONE</h1>
   <h2>عملیات نجات پایگاه</h2>
-  <p>چپ صفحه: جوی‌استیک حرکت &nbsp;|&nbsp; راست صفحه: کشیدن انگشت برای نشونه‌گیری</p>
-  <p>دکمه قرمز: شلیک &nbsp;|&nbsp; دکمه زرد: شارژ مجدد &nbsp;|&nbsp; دکمه آبی: پرش &nbsp;|&nbsp; دکمه دایره‌ای بزرگ: نشونه‌گیری دقیق</p>
-  <p>گوشه بالا-راست: انتخاب سلاح (پیستول، مسلسل SMG، ساچمه‌ای، تک‌تیرانداز) — بقیه سلاح‌ها رو باید از فروشگاه بخری</p>
-  <p>سلاح‌های جدید فروشگاه: تفنگ اتومات، مگنوم، مینی‌گان، آرپی‌جی (چند دشمن رو هم‌زمان می‌زنه) و شعله‌افکن</p>
-  <p>از موج‌های بالاتر دشمنای جدید هم میان: تک‌تیرانداز و بمب‌افکن از راه دور بهت شلیک می‌کنن، پزشک دشمنارو درمان می‌کنه، سنگین‌وزن یهو بهت حمله‌ور میشه — این‌ها رو اول بزن!</p>
-  <p>گاهی جعبه مهمات از آسمون میفته؛ برو زیرش تا مهماتت شارژ بشه</p>
-  <p>روی اسنایپر دکمه نشونه‌گیری بزن تا از تو دوربینش زوم واقعی ببینی</p>
-  <p>دکمه‌های سبز و خاکستری سمت چپ: نارنجک و نارنجک دودزا (باید از فروشگاه بخری)</p>
-  <p>مهماتت محدوده! وقتی ذخیره تموم بشه دیگه نمی‌تونی شارژ کنی — دنبال جعبه مهمات بگرد</p>
-  <p>دشمنا انواع مختلف دارن: عادی، تندرو، تنومند و انتحاری — از موج‌های بالاتر سر و کله‌شون پیدا میشه</p>
-  <p>دکمه ⚙️ بالا-چپ: تنظیم حساسیت دوربین</p>
-  <p>هر موجی از دشمنان رو نابود کن، سکه و امتیاز جمع کن، بعد از هر موج از فروشگاه خرید کن. مراقب جونت باش!</p>
-  <button class="bigBtn" id="startBtn">شروع نبرد</button>
-  <button class="bigBtn" id="coopBtn" style="background:linear-gradient(135deg,#1c5c8a,#123a5c); margin-top:8px;">🌐 بازی دو نفره (Co-op)</button>
+  <button class="bigBtn" id="startBtn" style="margin-top:10px;">شروع نبرد</button>
+  <button class="bigBtn" id="coopBtn" style="background:linear-gradient(135deg,#1c5c8a,#123a5c); margin-top:14px;">🌐 بازی دو نفره (Co-op)</button>
+  <button class="bigBtn" id="backToLobbyBtn" style="background:#333; margin-top:14px;">بازگشت به پایگاه</button>
 </div>
 
 <div class="overlay hidden" id="netOverlay" style="display:none;">
@@ -367,7 +418,11 @@
   <h2 id="goSub">تو کشته شدی</h2>
   <p>امتیاز نهایی: <b id="finalScore">0</b></p>
   <p>موج رسیده: <b id="finalWave">1</b></p>
-  <button class="bigBtn" id="restartBtn">تلاش دوباره</button>
+  <div id="leaderboardBox" style="margin:10px 0; font-size:14px; color:#ffd23f;">
+    <div>🏆 برترین‌ها</div>
+    <ol id="leaderboardList" style="text-align:right; padding-right:20px; margin:6px 0;"></ol>
+  </div>
+  <button class="bigBtn" id="restartBtn">بازگشت به پایگاه</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -920,12 +975,17 @@ const player = {
   speed: 6,
   baseSpeed: 6,
   alive: true,
+  downed: false,
   velY: 0,
   grounded: true,
   eyeHeight: 1.7,
   grenadeCount: 0,
   smokeCount: 0,
 };
+const DOWNED_TIME = 25; // seconds to be revived before it's game over
+const REVIVE_RADIUS = 3.2;
+const REVIVE_MIN_HP = 20; // reviver needs at least this much HP to be able to give half away
+let downedTimer = 0;
 const GRAVITY = -20;
 const JUMP_FORCE = 7.2;
 const BASE_FOV = 72;
@@ -947,13 +1007,235 @@ const WEAPONS = [
 ];
 const WEAPONS_DEFAULT = WEAPONS.map(w=>({dmgBody:w.dmgBody, dmgHead:w.dmgHead, reloadTime:w.reloadTime, unlocked:w.unlocked, splashDamage:w.splashDamage}));
 let weaponIndex = 0;
-let ammoState = WEAPONS.map(w=>({ammo:w.mag, reloading:false, timer:null, reserve: w.melee ? Infinity : w.mag*3}));
+let ammoState = WEAPONS.map(w=>({ammo:w.mag, reloading:false, timer:null, reserve: w.melee ? Infinity : Math.round(w.mag*3*(window.AMMO_MULT||1))}));
 let score = 0, wave = 0, coins = 0;
 let enemiesAliveCount = 0;
 let gameStarted = false, gameOver = false, shopOpen = false, settingsOpen = false;
 let lastShotTime = 0;
 // ---- Co-op networking state ----
 let gameMode = 'solo'; // 'solo' | 'coopHost' | 'coopClient'
+
+/* ================= PERSISTENT SAVE / DIAMONDS / MISSIONS / SHOP ================= */
+const SAVE_KEY = 'strikeZoneSave_v1';
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function daysSince(iso){ if(!iso) return Infinity; const a=new Date(iso), b=new Date(); return Math.floor((b-a)/86400000); }
+const MISSION_POOL = [
+  {id:'kill10', desc:'۱۰ دشمن نابود کن', target:10, reward:15, type:'kills'},
+  {id:'kill25', desc:'۲۵ دشمن نابود کن', target:25, reward:25, type:'kills'},
+  {id:'kill40', desc:'۴۰ دشمن نابود کن', target:40, reward:35, type:'kills'},
+  {id:'wave3', desc:'به موج ۳ برس', target:3, reward:20, type:'wave'},
+  {id:'wave5', desc:'به موج ۵ برس', target:5, reward:30, type:'wave'},
+  {id:'headshot5', desc:'۵ بار به سر دشمن بزن', target:5, reward:20, type:'headshot'},
+  {id:'headshot12', desc:'۱۲ بار به سر دشمن بزن', target:12, reward:35, type:'headshot'},
+  {id:'playgame', desc:'یک بازی رو تموم کن', target:1, reward:10, type:'gameplayed'},
+];
+const UPGRADE_DEFS = {
+  hp:    {label:'❤️ سلامتی پایه', desc:'+10 سلامتی هر سطح', baseCost:20, costStep:15, max:5},
+  speed: {label:'👟 سرعت حرکت',   desc:'+۵٪ سرعت هر سطح',   baseCost:20, costStep:15, max:5},
+  dmg:   {label:'💥 آسیب سلاح‌ها', desc:'+۵٪ آسیب هر سطح',   baseCost:25, costStep:20, max:5},
+  ammo:  {label:'🎒 ظرفیت مهمات', desc:'+۱۵٪ مهمات ذخیره هر سطح', baseCost:20, costStep:15, max:5},
+};
+const PLAYER_SKINS = [
+  {id:'default', label:'پیش‌فرض (آبی)', color:0x2a7fd6, cost:0},
+  {id:'red',    label:'قرمز آتشین',      color:0xd63a2a, cost:40},
+  {id:'green',  label:'سبز جنگلی',       color:0x2ad65a, cost:40},
+  {id:'gold',   label:'طلایی افسانه‌ای',  color:0xd6b62a, cost:60},
+];
+const WEAPON_SKINS = [
+  {id:'default', label:'پیش‌فرض',        color:null,    cost:0},
+  {id:'black',  label:'مشکی عملیاتی',    color:0x1a1a1a, cost:35},
+  {id:'camo',   label:'کاموفلاژ',        color:0x4a5d3a, cost:35},
+  {id:'gold',   label:'طلاکوب',          color:0xd6b62a, cost:60},
+];
+const ENEMY_SKINS = [
+  {id:'default', label:'پیش‌فرض',        tint:null,     cost:0},
+  {id:'toxic',  label:'زامبی سمی (سبز)', tint:0x3ad63a, cost:40},
+  {id:'robot',  label:'رباتیک آبی',      tint:0x3ac0d6, cost:40},
+  {id:'inferno',label:'شعله‌ای قرمز',    tint:0xd63a1a, cost:60},
+];
+function defaultSave(){
+  return {
+    diamonds: 0,
+    bestScore: 0,
+    lastDaily: null,
+    lastWeekly: null,
+    missionsDate: null,
+    missions: [],
+    upgrades: {hp:0, speed:0, dmg:0, ammo:0},
+    skins: {player:'default', weapon:'default', enemy:'default'},
+    ownedSkins: {player:['default'], weapon:['default'], enemy:['default']},
+  };
+}
+function loadSave(){
+  let s = null;
+  try{ s = JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){}
+  const d = defaultSave();
+  if(!s || typeof s !== 'object') return d;
+  return Object.assign(d, s, {
+    upgrades: Object.assign(d.upgrades, s.upgrades||{}),
+    skins: Object.assign(d.skins, s.skins||{}),
+    ownedSkins: Object.assign(d.ownedSkins, s.ownedSkins||{}),
+  });
+}
+let SAVE = loadSave();
+
+// ---------- Server sync (Cloudflare D1 via worker.js API) ----------
+const API_BASE = "https://bazikhafanbahalkhoob.astyw79.workers.dev";
+const USERNAME_KEY = 'strikeZoneUsername';
+function getUsername(){
+  let u = localStorage.getItem(USERNAME_KEY);
+  if(!u){
+    u = (prompt('اسم بازیکن خودتو وارد کن:') || 'Player').trim().slice(0,20) || 'Player';
+    localStorage.setItem(USERNAME_KEY, u);
+  }
+  return u;
+}
+let syncTimer = null;
+function syncSaveToServer(){
+  fetch(API_BASE + '/api/save', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ username: getUsername(), saveData: SAVE, bestScore: SAVE.bestScore||0 })
+  }).catch(()=>{});
+}
+async function loadFromServer(){
+  try{
+    const res = await fetch(API_BASE + '/api/load?username=' + encodeURIComponent(getUsername()));
+    const data = await res.json();
+    if(data.found && data.saveData){
+      SAVE = Object.assign(defaultSave(), data.saveData, {
+        upgrades: Object.assign(defaultSave().upgrades, data.saveData.upgrades||{}),
+        skins: Object.assign(defaultSave().skins, data.saveData.skins||{}),
+        ownedSkins: Object.assign(defaultSave().ownedSkins, data.saveData.ownedSkins||{}),
+      });
+      try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
+    }
+  }catch(e){}
+}
+async function loadLeaderboard(){
+  try{
+    const res = await fetch(API_BASE + '/api/leaderboard');
+    const data = await res.json();
+    const list = document.getElementById('leaderboardList');
+    if(list && data.leaderboard){
+      list.innerHTML = data.leaderboard.map(p=>`<li>${p.username} — ${p.best_score}</li>`).join('');
+    }
+  }catch(e){}
+}
+loadFromServer();
+
+function saveGame(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncSaveToServer, 1200);
+}
+function ensureDailyMissions(){
+  const t = todayStr();
+  if(SAVE.missionsDate !== t){
+    SAVE.missionsDate = t;
+    const pool = MISSION_POOL.slice();
+    const picked = [];
+    for(let i=0;i<3 && pool.length;i++){
+      const idx = Math.floor(Math.random()*pool.length);
+      picked.push(pool.splice(idx,1)[0]);
+    }
+    SAVE.missions = picked.map(m=>({id:m.id, desc:m.desc, target:m.target, reward:m.reward, type:m.type, progress:0, claimed:false}));
+    saveGame();
+  }
+}
+function trackMissionEvent(type, amount){
+  ensureDailyMissions();
+  let changed = false;
+  SAVE.missions.forEach(m=>{
+    if(m.type===type && !m.claimed && m.progress<m.target){
+      m.progress = Math.min(m.target, m.progress+amount);
+      changed = true;
+    }
+  });
+  if(changed) saveGame();
+}
+function trackMissionWave(waveNum){
+  ensureDailyMissions();
+  let changed = false;
+  SAVE.missions.forEach(m=>{
+    if(m.type==='wave' && !m.claimed){
+      const np = Math.max(m.progress, Math.min(m.target, waveNum));
+      if(np!==m.progress){ m.progress = np; changed = true; }
+    }
+  });
+  if(changed) saveGame();
+}
+function claimMission(id){
+  const m = SAVE.missions.find(x=>x.id===id);
+  if(!m || m.claimed || m.progress<m.target) return;
+  m.claimed = true;
+  SAVE.diamonds += m.reward;
+  saveGame();
+  renderLobby();
+}
+function claimDaily(){
+  if(SAVE.lastDaily === todayStr()) return;
+  SAVE.diamonds += 20;
+  SAVE.lastDaily = todayStr();
+  saveGame();
+  renderLobby();
+}
+function claimWeekly(){
+  if(daysSince(SAVE.lastWeekly) < 7) return;
+  SAVE.diamonds += 100;
+  SAVE.lastWeekly = new Date().toISOString().slice(0,10);
+  saveGame();
+  renderLobby();
+}
+function upgradeCost(key){ const u=UPGRADE_DEFS[key]; return u.baseCost + SAVE.upgrades[key]*u.costStep; }
+function buyUpgrade(key){
+  const u = UPGRADE_DEFS[key];
+  const lvl = SAVE.upgrades[key];
+  if(lvl>=u.max) return;
+  const cost = upgradeCost(key);
+  if(SAVE.diamonds < cost) return;
+  SAVE.diamonds -= cost;
+  SAVE.upgrades[key] = lvl+1;
+  saveGame();
+  renderShopLobby();
+}
+function buySkin(cat, id){
+  const list = cat==='player'?PLAYER_SKINS:cat==='weapon'?WEAPON_SKINS:ENEMY_SKINS;
+  const item = list.find(x=>x.id===id);
+  if(!item) return;
+  if(SAVE.ownedSkins[cat].includes(id)){
+    SAVE.skins[cat] = id;
+  } else {
+    if(SAVE.diamonds < item.cost) return;
+    SAVE.diamonds -= item.cost;
+    SAVE.ownedSkins[cat].push(id);
+    SAVE.skins[cat] = id;
+  }
+  saveGame();
+  renderShopLobby();
+}
+function applyTintToGroup(group, colorHex){
+  if(colorHex==null) return;
+  const c = new THREE.Color(colorHex);
+  group.traverse(obj=>{
+    if(obj.isMesh && obj.material && obj.material.color){ obj.material.color.copy(c); }
+  });
+}
+function applyOwnedUpgradesToPlayer(){
+  const up = SAVE.upgrades;
+  player.maxHp = 100 + up.hp*10;
+  player.hp = player.maxHp;
+  player.baseSpeed = 6 * (1 + up.speed*0.05);
+  player.speed = player.baseSpeed;
+  window.DMG_MULT = 1 + up.dmg*0.05;
+  window.AMMO_MULT = 1 + up.ammo*0.15;
+}
+function rebuildGunModel(){
+  buildGunModel(currentWeapon());
+  const skin = WEAPON_SKINS.find(s=>s.id===SAVE.skins.weapon);
+  if(skin) applyTintToGroup(gunGroup, skin.color);
+}
+
 let enemyIdCounter = 1;
 let remotePlayer = null; // {x,y,z,yaw,hp,weaponIndex,alive}
 let remoteAvatar = null; // THREE.Group
@@ -1116,6 +1398,7 @@ function spawnEnemy(typeKey, hpMul, speedMul){
   mesh.position.set(x, 0, z);
   mesh.scale.setScalar(type.scale);
   scene.add(mesh);
+  { const eSkin = ENEMY_SKINS.find(s=>s.id===SAVE.skins.enemy); if(eSkin) applyTintToGroup(mesh, eSkin.tint); }
   const e = {
     id: enemyIdCounter++,
     mesh,
@@ -1179,6 +1462,7 @@ function explodeEnemyBomb(e){
 function startWave(n){
   wave = n;
   document.getElementById('waveVal').textContent = wave;
+  if(gameMode!=='coopClient') trackMissionWave(n);
   const count = Math.min(4 + Math.floor(n*1.15), 16);
   const hpMul = 1 + (n-1)*0.16;
   const speedMul = 1 + (n-1)*0.05;
@@ -1201,6 +1485,7 @@ function killEnemy(e, awardScore){
     coins += 5 + Math.floor(Math.random()*4) + (e.coinBonus||0);
     document.getElementById('scoreVal').textContent = score;
     updateCoinUI();
+    trackMissionEvent('kills', 1);
   }
   const idx = enemies.indexOf(e);
   if(idx>=0) enemies.splice(idx,1);
@@ -1209,7 +1494,7 @@ function killEnemy(e, awardScore){
     coins += 15 + wave*5; // wave-clear bonus
     updateCoinUI();
     if(gameMode==='coopHost'){
-      setTimeout(()=>{ if(!gameOver) startWave(wave+1); }, 1800);
+      setTimeout(()=>{ if(!gameOver) openCoopShop(); }, 1200);
     } else {
       setTimeout(()=>{ if(!gameOver) openShop(); }, 1200);
     }
@@ -1278,22 +1563,31 @@ function renderShop(){
     const available = item.canBuy();
     const card = document.createElement('div');
     card.className = 'shopItem';
-    const btnDisabled = !available || coins < item.cost;
+    const pending = pendingBuyId === item.id;
+    const btnDisabled = !available || coins < item.cost || pending;
     card.innerHTML = `
       <div class="siName">${item.name}</div>
       <div class="siDesc">${item.desc}</div>
       <div class="siCost">${available ? item.cost + ' سکه' : 'خریداری شده'}</div>
-      <button class="shopBuyBtn ${!available?'owned':''}" ${btnDisabled?'disabled':''}>${available ? 'خرید' : '✓'}</button>
+      <button class="shopBuyBtn ${!available?'owned':''}" ${btnDisabled?'disabled':''}>${available ? (pending ? '...' : 'خرید') : '✓'}</button>
     `;
     if(available){
       const btn = card.querySelector('.shopBuyBtn');
       const doBuy = (ev)=>{
         ev.preventDefault();
-        if(coins < item.cost) return;
-        coins -= item.cost;
-        item.buy();
-        updateCoinUI();
-        renderShop();
+        if(coins < item.cost || pendingBuyId) return;
+        if(gameMode==='coopClient'){
+          // shared coin pool is host-authoritative — ask the host to deduct, apply the item locally once confirmed
+          pendingBuyId = item.id;
+          netSend({t:'buyReq', id:item.id, cost:item.cost});
+          renderShop();
+        } else {
+          coins -= item.cost;
+          item.buy();
+          updateCoinUI();
+          renderShop();
+          if(gameMode==='coopHost') netSend({t:'coins', coins}); // keep the client's shared-coin display in sync right away
+        }
       };
       btn.addEventListener('click', doBuy);
       btn.addEventListener('touchstart', doBuy, {passive:false});
@@ -1304,6 +1598,9 @@ function renderShop(){
 
 function openShop(){
   shopOpen = true;
+  pendingBuyId = null;
+  document.getElementById('coopWaitOverlay').style.display = 'none';
+  document.getElementById('shopSubtitle').textContent = 'موج ' + wave + ' تموم شد — قبل از موج بعدی خرید کن';
   renderShop();
   document.getElementById('shopOverlay').style.display = 'flex';
 }
@@ -1312,8 +1609,40 @@ function closeShop(){
   document.getElementById('shopOverlay').style.display = 'none';
   startWave(wave+1);
 }
-document.getElementById('shopContinueBtn').addEventListener('click', closeShop);
-document.getElementById('shopContinueBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); closeShop(); }, {passive:false});
+
+// ---------- Co-op shop: open for both players after a wave, gate the next wave until both are ready ----------
+let hostReady = false, clientReady = false, localReady = false, pendingBuyId = null;
+function openCoopShop(){
+  hostReady = false; clientReady = false; localReady = false;
+  openShop();
+  document.getElementById('shopSubtitle').textContent = 'موج ' + wave + ' تموم شد — هر دو نفر می‌تونید خرید کنید';
+  netSend({t:'waveClear', wave, coins});
+}
+function checkBothReady(){
+  if(hostReady && clientReady){
+    hostReady = false; clientReady = false;
+    document.getElementById('coopWaitOverlay').style.display = 'none';
+    startWave(wave+1);
+    netSend({t:'nextWave', wave});
+  }
+}
+function onShopContinue(){
+  if(gameMode==='solo'){ closeShop(); return; }
+  localReady = true;
+  document.getElementById('shopOverlay').style.display = 'none';
+  document.getElementById('coopWaitOverlay').style.display = 'flex';
+  netSend({t:'ready'});
+  if(gameMode==='coopHost'){ hostReady = true; checkBothReady(); }
+}
+function showCoopWaveBanner(n){
+  const banner = document.getElementById('waveBanner');
+  document.getElementById('waveNum').textContent = 'WAVE ' + n;
+  document.getElementById('waveSub').textContent = 'دشمنان در راهند...';
+  banner.style.opacity = '1';
+  setTimeout(()=>{ banner.style.opacity='0'; }, 2200);
+}
+document.getElementById('shopContinueBtn').addEventListener('click', onShopContinue);
+document.getElementById('shopContinueBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); onShopContinue(); }, {passive:false});
 
 // ---------- Settings (camera sensitivity) ----------
 const settingsBtn = document.getElementById('settingsBtn');
@@ -1491,7 +1820,7 @@ function updateThrowableUI(){
 }
 
 function throwGrenade(type){
-  if(!gameStarted || gameOver || shopOpen || settingsOpen) return;
+  if(!gameStarted || gameOver || shopOpen || settingsOpen || player.downed) return;
   if(type==='frag' && player.grenadeCount<=0) return;
   if(type==='smoke' && player.smokeCount<=0) return;
   if(type==='frag') player.grenadeCount--; else player.smokeCount--;
@@ -1576,7 +1905,7 @@ function explodeAtPoint(pos, radius, maxDamage, color, playerRadiusMul, playerMa
     enemies.slice().forEach(e=>{
       const d = e.mesh.position.distanceTo(pos);
       if(d < radius){
-        const dmg = maxDamage * (1 - d/radius);
+        const dmg = maxDamage * (1 - d/radius) * (window.DMG_MULT||1);
         if(gameMode==='coopClient') netSend({t:'hit', id:e.id, dmg});
         e.hp -= dmg;
         if(e.hp <= 0){ killEnemy(e, true); killedAny = true; }
@@ -1655,7 +1984,7 @@ let joyTouchId = null;
 let joyVec = {x:0,y:0};
 const joyMaxRadius = 45;
 const JOY_HALF = 55; // half of joyBase's 110px width/height
-let joystickMode = 'fixed'; // 'fixed' | 'dynamic'
+let joystickMode = 'dynamic'; // 'fixed' | 'dynamic' — floating by default so the stick always appears right under the finger
 
 function setJoystickMode(mode){
   joystickMode = mode;
@@ -1680,6 +2009,12 @@ document.getElementById('joyModeFixedBtn').addEventListener('click', function(){
 document.getElementById('joyModeFixedBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); setJoystickMode('fixed'); }, {passive:false});
 document.getElementById('joyModeDynamicBtn').addEventListener('click', function(){ setJoystickMode('dynamic'); });
 document.getElementById('joyModeDynamicBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); setJoystickMode('dynamic'); }, {passive:false});
+setJoystickMode(joystickMode); // sync the joyBase/joyZone visuals + pointer-events to the default mode above
+
+// ---------- Revive button (co-op) ----------
+const reviveBtn = document.getElementById('reviveBtn');
+reviveBtn.addEventListener('touchstart', function(ev){ ev.preventDefault(); reviveTeammateAttempt(); }, {passive:false});
+reviveBtn.addEventListener('click', function(ev){ ev.preventDefault(); reviveTeammateAttempt(); });
 
 function joyStart(t){
   joyTouchId = t.identifier;
@@ -1789,7 +2124,7 @@ document.getElementById('reloadBtn').addEventListener('touchstart', function(ev)
 
 const jumpBtn = document.getElementById('jumpBtn');
 function tryJump(){
-  if(!gameStarted || gameOver || shopOpen || settingsOpen) return;
+  if(!gameStarted || gameOver || shopOpen || settingsOpen || player.downed) return;
   if(player.grounded){
     player.velY = JUMP_FORCE;
     player.grounded = false;
@@ -1801,7 +2136,7 @@ jumpBtn.addEventListener('click', tryJump);
 
 const aimBtn = document.getElementById('aimBtn');
 function setAiming(on){
-  if(on && (!gameStarted || gameOver || shopOpen || settingsOpen)) return;
+  if(on && (!gameStarted || gameOver || shopOpen || settingsOpen || player.downed)) return;
   aiming = on;
   aimBtn.classList.toggle('pressed', on);
   const isSniper = currentWeapon().key === 'sniper';
@@ -1984,11 +2319,11 @@ function shoot(){
         }
       }
       if(hitEnemy){
-        const dmg = hitIsHead ? weapon.dmgHead : weapon.dmgBody;
+        const dmg = (hitIsHead ? weapon.dmgHead : weapon.dmgBody) * (window.DMG_MULT||1);
         if(gameMode==='coopClient') netSend({t:'hit', id:hitEnemy.id, dmg});
         hitEnemy.hp -= dmg;
         anyHit = true;
-        if(hitIsHead) anyHead = true;
+        if(hitIsHead){ anyHead = true; trackMissionEvent('headshot',1); }
         if(hitEnemy.hp <= 0 && !hitOnce.has(hitEnemy)){
           hitOnce.add(hitEnemy);
           killEnemy(hitEnemy, true);
@@ -2044,7 +2379,7 @@ let lastNoAmmoMsg = 0;
 function doReload(){
   const weapon = currentWeapon();
   const ammoS = currentAmmoState();
-  if(!gameStarted || gameOver || shopOpen || settingsOpen) return;
+  if(!gameStarted || gameOver || shopOpen || settingsOpen || player.downed) return;
   if(weapon.melee) return;
   if(ammoS.reloading || ammoS.ammo === weapon.mag) return;
   if(ammoS.reserve <= 0){
@@ -2076,14 +2411,14 @@ function switchWeapon(i){
     return;
   }
   weaponIndex = i;
-  buildGunModel(currentWeapon());
+  rebuildGunModel();
   updateAmmoUI();
   if(aiming) setAiming(true);
 }
 
 // ---------- Damage to player ----------
 function damagePlayer(amount){
-  if(!player.alive) return;
+  if(!player.alive || player.downed) return;
   player.hp -= amount;
   playHurt();
   const df = document.getElementById('damageFlash');
@@ -2091,13 +2426,52 @@ function damagePlayer(amount){
   setTimeout(()=>{ df.style.opacity='0'; }, 150);
   if(player.hp <= 0){
     player.hp = 0;
-    if(gameMode!=='solo') netSend({t:'dead'});
-    endGame(false);
+    updateHealthUI();
+    // co-op: if a teammate is alive and not already downed themselves, go down instead of dying outright
+    if(gameMode!=='solo' && remotePlayer && remotePlayer.alive!==false && !remotePlayer.downed){
+      enterDowned();
+    } else {
+      player.alive = false;
+      if(gameMode!=='solo') netSend({t:'dead'});
+      endGame(false);
+    }
+    return;
   }
   updateHealthUI();
 }
 function updateHealthUI(){
   document.getElementById('healthBarFg').style.width = Math.max(0,(player.hp/player.maxHp*100))+'%';
+}
+
+// ---------- Downed / revive (co-op) ----------
+function enterDowned(){
+  player.downed = true;
+  downedTimer = DOWNED_TIME;
+  document.getElementById('downedOverlay').style.display = 'flex';
+  document.getElementById('reviveBtn').style.display = 'none';
+  netSend({t:'downed'});
+  showKillFeedMsg('⚠️ زمین خوردی! منتظر نجات دوستت باش...');
+}
+function reviveTeammateAttempt(){
+  if(gameMode==='solo' || !remotePlayer || !remotePlayer.downed) return;
+  if(player.downed || player.hp < REVIVE_MIN_HP) return;
+  const dx = camHolder.position.x - remotePlayer.x, dz = camHolder.position.z - remotePlayer.z;
+  if(dx*dx + dz*dz > REVIVE_RADIUS*REVIVE_RADIUS) return;
+  const giveHp = Math.floor(player.hp/2);
+  player.hp -= giveHp;
+  updateHealthUI();
+  netSend({t:'revive', hp: giveHp});
+  remotePlayer.downed = false; // optimistic local update so the prompt/avatar update immediately
+  document.getElementById('reviveBtn').style.display = 'none';
+  showKillFeedMsg('🤝 دوستت رو ریوایو کردی!');
+}
+function revivedByTeammate(hp){
+  player.downed = false;
+  player.alive = true;
+  player.hp = Math.max(1, Math.min(player.maxHp, hp));
+  updateHealthUI();
+  document.getElementById('downedOverlay').style.display = 'none';
+  showKillFeedMsg('❤️ دوستت نجاتت داد!');
 }
 
 // ---------- Line-of-sight helper (used by ranged/bomber enemy AI) ----------
@@ -2146,24 +2520,34 @@ function netDisconnect(){
   NET.ws = null; NET.connected = false;
   if(remoteAvatar){ scene.remove(remoteAvatar); remoteAvatar = null; }
   remotePlayer = null;
+  hostReady = false; clientReady = false; localReady = false; pendingBuyId = null;
   clearInterval(NET.syncTimer);
 }
-function createRemoteAvatarMesh(){
+function createRemoteAvatarMesh(skinId){
   const g = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({color:0x2a7fd6, roughness:0.6});
+  const skin = PLAYER_SKINS.find(s=>s.id===skinId) || PLAYER_SKINS[0];
+  const bodyMat = new THREE.MeshStandardMaterial({color:skin.color, roughness:0.6});
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.38,1.15,8), bodyMat);
   body.position.y = 0.95; g.add(body);
   const headMat = new THREE.MeshStandardMaterial({color:0xc9a37e, roughness:0.6});
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.28,10,10), headMat);
   head.position.y = 1.75; g.add(head);
+  g.userData.skinId = skinId;
   return g;
 }
 function netOnData(data){
   if(data.t === 'p'){
     remotePlayer = data;
-    if(!remoteAvatar){ remoteAvatar = createRemoteAvatarMesh(); scene.add(remoteAvatar); }
+    if(!remoteAvatar){ remoteAvatar = createRemoteAvatarMesh(data.skin); scene.add(remoteAvatar); }
+    else if(data.skin && remoteAvatar.userData.skinId !== data.skin){
+      const skin = PLAYER_SKINS.find(s=>s.id===data.skin);
+      if(skin) applyTintToGroup(remoteAvatar, skin.color);
+      remoteAvatar.userData.skinId = data.skin;
+    }
     remoteAvatar.position.set(data.x, 0, data.z);
     remoteAvatar.rotation.y = data.yaw;
+    // visually flatten the teammate's avatar while they're downed, so it's obvious who needs reviving
+    remoteAvatar.scale.set(1, data.downed ? 0.35 : 1, 1);
   } else if(data.t === 's' && gameMode==='coopClient'){
     applyEnemySnapshot(data);
   } else if(data.t === 'hit' && gameMode==='coopHost'){
@@ -2173,6 +2557,52 @@ function netOnData(data){
     damagePlayer(data.dmg);
   } else if(data.t === 'dead'){
     if(gameStarted && !gameOver) endGame(false, 'همراهت شکست خورد — عملیات لغو شد');
+  } else if(data.t === 'downed'){
+    if(gameStarted && !gameOver) showKillFeedMsg('⚠️ همراهت زمین خورده! برو نجاتش بده');
+  } else if(data.t === 'revive'){
+    revivedByTeammate(data.hp);
+  } else if(data.t === 'waveClear' && gameMode==='coopClient'){
+    // host cleared the wave — open the shop here too so both players can buy before the next wave
+    wave = data.wave; coins = data.coins;
+    document.getElementById('waveVal').textContent = wave;
+    updateCoinUI();
+    openShop();
+    document.getElementById('shopSubtitle').textContent = 'موج ' + wave + ' تموم شد — هر دو نفر می‌تونید خرید کنید';
+  } else if(data.t === 'coins'){
+    coins = data.coins;
+    updateCoinUI();
+    if(shopOpen) renderShop();
+  } else if(data.t === 'ready'){
+    if(gameMode==='coopHost'){ clientReady = true; checkBothReady(); }
+  } else if(data.t === 'nextWave' && gameMode==='coopClient'){
+    // host is starting the next wave — close our own shop/waiting screen and show the banner (host spawns/syncs the enemies)
+    shopOpen = false;
+    document.getElementById('shopOverlay').style.display = 'none';
+    document.getElementById('coopWaitOverlay').style.display = 'none';
+    wave = data.wave;
+    document.getElementById('waveVal').textContent = wave;
+    showCoopWaveBanner(wave);
+  } else if(data.t === 'buyReq' && gameMode==='coopHost'){
+    // client wants to spend from the shared coin pool — host is authoritative over the shared coins
+    if(coins >= data.cost){
+      coins -= data.cost;
+      updateCoinUI();
+      if(shopOpen) renderShop();
+      netSend({t:'buyRes', id:data.id, ok:true, coins});
+    } else {
+      netSend({t:'buyRes', id:data.id, ok:false, coins});
+    }
+  } else if(data.t === 'buyRes' && gameMode==='coopClient'){
+    coins = data.coins;
+    pendingBuyId = null;
+    if(data.ok){
+      const item = SHOP_ITEMS.find(it=>it.id===data.id);
+      if(item) item.buy();
+    } else {
+      showKillFeedMsg('❌ سکه کافی نیست (دوستت زودتر خرج کرد)');
+    }
+    updateCoinUI();
+    if(shopOpen) renderShop();
   }
 }
 function applyEnemySnapshot(data){
@@ -2189,6 +2619,7 @@ function applyEnemySnapshot(data){
       const mesh = createEnemyMesh(type);
       mesh.scale.setScalar(type.scale);
       scene.add(mesh);
+      { const eSkin = ENEMY_SKINS.find(s=>s.id===SAVE.skins.enemy); if(eSkin) applyTintToGroup(mesh, eSkin.tint); }
       e = { id:info.id, type:info.ty, mesh, radius:type.radius, alive:true };
       enemies.push(e);
     }
@@ -2205,7 +2636,7 @@ function netStartSyncLoop(){
   clearInterval(NET.syncTimer);
   NET.syncTimer = setInterval(()=>{
     if(!NET.connected || !gameStarted || gameOver) return;
-    netSend({t:'p', x:camHolder.position.x, y:camHolder.position.y, z:camHolder.position.z, yaw, alive:player.hp>0});
+    netSend({t:'p', x:camHolder.position.x, y:camHolder.position.y, z:camHolder.position.z, yaw, alive:player.hp>0, downed:player.downed, skin:SAVE.skins.player});
     if(gameMode==='coopHost'){
       netSend({t:'s', wave, score, coins, enemies: enemies.filter(e=>e.alive!==false).map(e=>({
         id:e.id, ty:e.type, x:e.mesh.position.x, z:e.mesh.position.z, ry:e.mesh.rotation.y, hp:e.hp, mhp:e.maxHp
@@ -2243,6 +2674,128 @@ function netConnectSocket(onOpen, onFail){
     if(!NET.connected) netSetStatus('netStatus', '❌ اتصال به سرور ناموفق بود.');
   });
 }
+/* ================= LOBBY UI ================= */
+function renderLobby(){
+  ensureDailyMissions();
+  document.getElementById('lobbyDiamonds').textContent = SAVE.diamonds;
+  const dailyBtn = document.getElementById('dailyRewardBtn');
+  if(SAVE.lastDaily === todayStr()){
+    dailyBtn.textContent = '✅ جایزه امروز گرفته شد';
+    dailyBtn.style.opacity = '0.5'; dailyBtn.disabled = true;
+  } else {
+    dailyBtn.textContent = '🎁 جایزه روزانه (+20💎)';
+    dailyBtn.style.opacity = '1'; dailyBtn.disabled = false;
+  }
+  const weeklyBtn = document.getElementById('weeklyRewardBtn');
+  const ds = daysSince(SAVE.lastWeekly);
+  if(ds < 7){
+    weeklyBtn.textContent = `⏳ ${7-ds} روز دیگه`;
+    weeklyBtn.style.opacity = '0.5'; weeklyBtn.disabled = true;
+  } else {
+    weeklyBtn.textContent = '🏆 جایزه هفتگی (+100💎)';
+    weeklyBtn.style.opacity = '1'; weeklyBtn.disabled = false;
+  }
+  const list = document.getElementById('missionsList');
+  list.innerHTML = '';
+  SAVE.missions.forEach(m=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px; background:rgba(255,255,255,0.05); border-radius:8px; padding:8px 10px; margin-bottom:6px; font-size:13px;';
+    const done = m.progress>=m.target;
+    row.innerHTML = `<div style="text-align:right; flex:1;">
+        <div style="color:#fff;">${m.desc}</div>
+        <div style="color:#8ea0c8; font-size:11px;">${m.progress}/${m.target} — 💎${m.reward}</div>
+      </div>`;
+    const btn = document.createElement('button');
+    btn.className = 'smallBtn';
+    btn.style.cssText = 'flex-shrink:0; padding:8px 12px;' + (m.claimed ? 'opacity:0.4;' : done ? 'background:#2ecc71;color:#04250f;' : 'opacity:0.5;');
+    btn.textContent = m.claimed ? '✅' : done ? 'دریافت' : '...';
+    btn.disabled = m.claimed || !done;
+    if(!m.claimed && done) btn.addEventListener('click', ()=>claimMission(m.id));
+    row.appendChild(btn);
+    list.appendChild(row);
+  });
+}
+function showLobby(){
+  document.getElementById('startOverlay').style.display = 'none';
+  document.getElementById('netOverlay').style.display = 'none';
+  document.getElementById('shopLobbyOverlay').style.display = 'none';
+  document.getElementById('gameOverOverlay').style.display = 'none';
+  document.getElementById('lobbyOverlay').style.display = 'flex';
+  renderLobby();
+}
+document.getElementById('dailyRewardBtn').addEventListener('click', claimDaily);
+document.getElementById('weeklyRewardBtn').addEventListener('click', claimWeekly);
+document.getElementById('lobbyEnterBtn').addEventListener('click', ()=>{
+  document.getElementById('lobbyOverlay').style.display = 'none';
+  document.getElementById('startOverlay').style.display = 'flex';
+});
+document.getElementById('backToLobbyBtn').addEventListener('click', showLobby);
+
+/* ================= SHOP (diamonds) UI ================= */
+function shopRow(label, subLabel, btnLabel, btnEnabled, onClick, owned){
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:8px; background:rgba(255,255,255,0.05); border-radius:8px; padding:9px 10px; margin-bottom:6px; font-size:13px;';
+  row.innerHTML = `<div style="text-align:right; flex:1;">
+      <div style="color:#fff;">${label}${owned?' <span style=\"color:#2ecc71;\">✔️</span>':''}</div>
+      <div style="color:#8ea0c8; font-size:11px;">${subLabel}</div>
+    </div>`;
+  const btn = document.createElement('button');
+  btn.className = 'smallBtn';
+  btn.style.cssText = 'flex-shrink:0; padding:8px 12px;' + (btnEnabled ? 'background:#2ecc71;color:#04250f;' : 'opacity:0.4;');
+  btn.textContent = btnLabel;
+  btn.disabled = !btnEnabled;
+  if(btnEnabled) btn.addEventListener('click', onClick);
+  row.appendChild(btn);
+  return row;
+}
+function renderShopLobby(){
+  document.getElementById('shopLobbyDiamonds').textContent = SAVE.diamonds;
+  const c = document.getElementById('shopLobbyContent');
+  c.innerHTML = '';
+  const h1 = document.createElement('h3'); h1.style.cssText='color:#9ff;font-size:14px;margin:10px 0 6px;text-align:right;'; h1.textContent='⚙️ ارتقاهای دائمی';
+  c.appendChild(h1);
+  Object.keys(UPGRADE_DEFS).forEach(key=>{
+    const u = UPGRADE_DEFS[key];
+    const lvl = SAVE.upgrades[key];
+    const maxed = lvl>=u.max;
+    const cost = upgradeCost(key);
+    c.appendChild(shopRow(
+      `${u.label} — سطح ${lvl}/${u.max}`,
+      maxed ? u.desc + ' (حداکثر)' : `${u.desc} — هزینه: 💎${cost}`,
+      maxed ? 'حداکثر' : `💎${cost}`,
+      !maxed && SAVE.diamonds>=cost,
+      ()=>buyUpgrade(key)
+    ));
+  });
+  const h2 = document.createElement('h3'); h2.style.cssText='color:#9ff;font-size:14px;margin:14px 0 6px;text-align:right;'; h2.textContent='🧍 اسکین بازیکن';
+  c.appendChild(h2);
+  PLAYER_SKINS.forEach(s=>{
+    const owned = SAVE.ownedSkins.player.includes(s.id);
+    const equipped = SAVE.skins.player===s.id;
+    c.appendChild(shopRow(s.label, owned?(equipped?'فعال':'مالکشی'):`هزینه: 💎${s.cost}`, equipped?'فعال':owned?'استفاده':`💎${s.cost}`, !equipped && (owned || SAVE.diamonds>=s.cost), ()=>buySkin('player', s.id), owned));
+  });
+  const h3 = document.createElement('h3'); h3.style.cssText='color:#9ff;font-size:14px;margin:14px 0 6px;text-align:right;'; h3.textContent='🔫 اسکین سلاح';
+  c.appendChild(h3);
+  WEAPON_SKINS.forEach(s=>{
+    const owned = SAVE.ownedSkins.weapon.includes(s.id);
+    const equipped = SAVE.skins.weapon===s.id;
+    c.appendChild(shopRow(s.label, owned?(equipped?'فعال':'مالکشی'):`هزینه: 💎${s.cost}`, equipped?'فعال':owned?'استفاده':`💎${s.cost}`, !equipped && (owned || SAVE.diamonds>=s.cost), ()=>buySkin('weapon', s.id), owned));
+  });
+  const h4 = document.createElement('h3'); h4.style.cssText='color:#9ff;font-size:14px;margin:14px 0 6px;text-align:right;'; h4.textContent='👹 اسکین دشمنان';
+  c.appendChild(h4);
+  ENEMY_SKINS.forEach(s=>{
+    const owned = SAVE.ownedSkins.enemy.includes(s.id);
+    const equipped = SAVE.skins.enemy===s.id;
+    c.appendChild(shopRow(s.label, owned?(equipped?'فعال':'مالکشی'):`هزینه: 💎${s.cost}`, equipped?'فعال':owned?'استفاده':`💎${s.cost}`, !equipped && (owned || SAVE.diamonds>=s.cost), ()=>buySkin('enemy', s.id), owned));
+  });
+}
+document.getElementById('lobbyShopBtn').addEventListener('click', ()=>{
+  document.getElementById('lobbyOverlay').style.display = 'none';
+  document.getElementById('shopLobbyOverlay').style.display = 'flex';
+  renderShopLobby();
+});
+document.getElementById('shopLobbyCloseBtn').addEventListener('click', showLobby);
+
 document.getElementById('coopBtn').addEventListener('click', ()=>{
   document.getElementById('startOverlay').style.display = 'none';
   document.getElementById('netOverlay').style.display = 'flex';
@@ -2296,47 +2849,72 @@ function animate(){
     camHolder.rotation.y = yaw;
     pitchObj.rotation.x = pitch;
 
-    // movement relative to yaw
-    tmpForward.set(-Math.sin(yaw), 0, -Math.cos(yaw));
-    tmpRight.set(Math.sin(yaw+Math.PI/2), 0, Math.cos(yaw+Math.PI/2));
-    const moveX = (tmpRight.x*joyVec.x + tmpForward.x*(-joyVec.y));
-    const moveZ = (tmpRight.z*joyVec.x + tmpForward.z*(-joyVec.y));
-    const mlen = Math.sqrt(moveX*moveX+moveZ*moveZ);
-    if(mlen > 0.05){
-      const nx = moveX/mlen, nz = moveZ/mlen;
-      const heavySlow = (currentWeapon().heavy && firing) ? 0.6 : 1;
-      const step = player.speed*heavySlow*dt;
-      let newX = camHolder.position.x + nx*step;
-      let newZ = camHolder.position.z + nz*step;
-      newX = Math.max(-ARENA+1, Math.min(ARENA-1, newX));
-      newZ = Math.max(-ARENA+1, Math.min(ARENA-1, newZ));
-      if(!collidesWithObstacle(newX, camHolder.position.z, player.radius)) camHolder.position.x = newX;
-      if(!collidesWithObstacle(camHolder.position.x, newZ, player.radius)) camHolder.position.z = newZ;
-      // gun bob (only while grounded)
-      if(player.grounded) gunGroup.position.y = -0.22 + Math.sin(now*0.012)*0.01;
-    }
+    if(player.downed){
+      // downed: no movement/shooting — just count down and wait to be revived (or bleed out)
+      downedTimer -= dt;
+      const dEl = document.getElementById('downedTimerVal');
+      if(dEl) dEl.textContent = Math.max(0, Math.ceil(downedTimer));
+      if(downedTimer <= 0){
+        player.downed = false;
+        player.alive = false;
+        document.getElementById('downedOverlay').style.display = 'none';
+        netSend({t:'dead'});
+        endGame(false, 'کسی به موقع نجاتت نداد — عملیات شکست خورد');
+      }
+    } else {
+      // movement relative to yaw
+      tmpForward.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+      tmpRight.set(Math.sin(yaw+Math.PI/2), 0, Math.cos(yaw+Math.PI/2));
+      const moveX = (tmpRight.x*joyVec.x + tmpForward.x*(-joyVec.y));
+      const moveZ = (tmpRight.z*joyVec.x + tmpForward.z*(-joyVec.y));
+      const mlen = Math.sqrt(moveX*moveX+moveZ*moveZ);
+      if(mlen > 0.05){
+        const nx = moveX/mlen, nz = moveZ/mlen;
+        const heavySlow = (currentWeapon().heavy && firing) ? 0.6 : 1;
+        const step = player.speed*heavySlow*dt;
+        let newX = camHolder.position.x + nx*step;
+        let newZ = camHolder.position.z + nz*step;
+        newX = Math.max(-ARENA+1, Math.min(ARENA-1, newX));
+        newZ = Math.max(-ARENA+1, Math.min(ARENA-1, newZ));
+        if(!collidesWithObstacle(newX, camHolder.position.z, player.radius)) camHolder.position.x = newX;
+        if(!collidesWithObstacle(camHolder.position.x, newZ, player.radius)) camHolder.position.z = newZ;
+        // gun bob (only while grounded)
+        if(player.grounded) gunGroup.position.y = -0.22 + Math.sin(now*0.012)*0.01;
+      }
 
-    // jump physics
-    if(!player.grounded || player.velY !== 0){
-      player.velY += GRAVITY*dt;
-      camHolder.position.y += player.velY*dt;
-      if(camHolder.position.y <= player.eyeHeight){
-        camHolder.position.y = player.eyeHeight;
-        player.velY = 0;
-        player.grounded = true;
+      // jump physics
+      if(!player.grounded || player.velY !== 0){
+        player.velY += GRAVITY*dt;
+        camHolder.position.y += player.velY*dt;
+        if(camHolder.position.y <= player.eyeHeight){
+          camHolder.position.y = player.eyeHeight;
+          player.velY = 0;
+          player.grounded = true;
+        }
+      }
+
+      // gun recoil recovery
+      gunGroup.position.z += (-0.5 - gunGroup.position.z)*0.2;
+      gunGroup.rotation.x += (0 - gunGroup.rotation.x)*0.2;
+      // aim-down-sights gun pose (pull toward center)
+      const aimTargetX = aiming ? 0.02 : 0.22;
+      gunGroup.position.x += (aimTargetX - gunGroup.position.x)*0.25;
+
+      if(firing) shoot();
+      if(minigunBarrelsMesh){
+        minigunBarrelsMesh.rotation.z += (firing ? 28 : 4) * dt;
       }
     }
 
-    // gun recoil recovery
-    gunGroup.position.z += (-0.5 - gunGroup.position.z)*0.2;
-    gunGroup.rotation.x += (0 - gunGroup.rotation.x)*0.2;
-    // aim-down-sights gun pose (pull toward center)
-    const aimTargetX = aiming ? 0.02 : 0.22;
-    gunGroup.position.x += (aimTargetX - gunGroup.position.x)*0.25;
-
-    if(firing) shoot();
-    if(minigunBarrelsMesh){
-      minigunBarrelsMesh.rotation.z += (firing ? 28 : 4) * dt;
+    // co-op: show/hide the revive prompt based on proximity to a downed teammate
+    if(gameMode!=='solo'){
+      const reviveBtnEl = document.getElementById('reviveBtn');
+      if(remotePlayer && remotePlayer.downed && !player.downed && player.hp>=REVIVE_MIN_HP){
+        const dx = camHolder.position.x-remotePlayer.x, dz = camHolder.position.z-remotePlayer.z;
+        reviveBtnEl.style.display = (dx*dx+dz*dz <= REVIVE_RADIUS*REVIVE_RADIUS) ? 'flex' : 'none';
+      } else {
+        reviveBtnEl.style.display = 'none';
+      }
     }
 
     // ammo crates falling from the sky (max 3 on the ground at once)
@@ -2516,6 +3094,8 @@ function startGame(){
   gameOver = false;
   shopOpen = false;
   settingsOpen = false;
+  hostReady = false; clientReady = false; localReady = false; pendingBuyId = null;
+  document.getElementById('coopWaitOverlay').style.display = 'none';
   document.getElementById('settingsOverlay').style.display = 'none';
   // reset shop upgrades back to defaults for a fresh run
   WEAPONS.forEach((w,i)=>{
@@ -2527,9 +3107,12 @@ function startGame(){
   });
   dmgUpgradeLevel = 0; reloadUpgradeLevel = 0;
   coins = 0;
-  player.maxHp = 100;
-  player.hp = player.maxHp;
-  player.baseSpeed = 6; player.speed = 6;
+  applyOwnedUpgradesToPlayer();
+  player.alive = true;
+  player.downed = false;
+  downedTimer = 0;
+  document.getElementById('downedOverlay').style.display = 'none';
+  document.getElementById('reviveBtn').style.display = 'none';
   player.velY = 0; player.grounded = true;
   player.grenadeCount = 0; player.smokeCount = 0;
   aiming = false;
@@ -2545,8 +3128,8 @@ function startGame(){
   tracers.slice().forEach(t=>scene.remove(t.mesh));
   tracers.length = 0;
   weaponIndex = 0;
-  ammoState = WEAPONS.map(w=>({ammo:w.mag, reloading:false, timer:null, reserve: w.melee ? Infinity : w.mag*3}));
-  buildGunModel(currentWeapon());
+  ammoState = WEAPONS.map(w=>({ammo:w.mag, reloading:false, timer:null, reserve: w.melee ? Infinity : Math.round(w.mag*3*(window.AMMO_MULT||1))}));
+  rebuildGunModel();
   score = 0;
   wave = 0;
   updateHealthUI();
@@ -2557,7 +3140,8 @@ function startGame(){
   ammoCrates.slice().forEach(c=>scene.remove(c.mesh));
   ammoCrates.length = 0;
   crateSpawnTimer = 8;
-  camHolder.position.set(gameMode==='coopClient' ? 3 : 0, player.eyeHeight, 10);
+  // coopClient used to spawn at x=3 which sits inside the obstacle crate at (4,10) — moved clear of all obstacles
+  camHolder.position.set(gameMode==='coopClient' ? -3 : 0, player.eyeHeight, 10);
   yaw = Math.PI; pitch = 0;
   document.getElementById('startOverlay').style.display = 'none';
   document.getElementById('gameOverOverlay').style.display = 'none';
@@ -2570,18 +3154,23 @@ function endGame(won, customSub){
   gameStarted = false;
   shopOpen = false;
   document.getElementById('shopOverlay').style.display = 'none';
+  document.getElementById('coopWaitOverlay').style.display = 'none';
   document.getElementById('goTitle').textContent = 'GAME OVER';
   document.getElementById('goSub').textContent = customSub || 'تو کشته شدی';
   document.getElementById('finalScore').textContent = score;
   document.getElementById('finalWave').textContent = wave;
   document.getElementById('gameOverOverlay').style.display = 'flex';
   if(gameMode!=='solo'){ netDisconnect(); gameMode='solo'; }
+  trackMissionEvent('gameplayed', 1);
+  if(score > (SAVE.bestScore||0)) SAVE.bestScore = score;
+  saveGame();
+  loadLeaderboard();
 }
 
 document.getElementById('startBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); startGame(); }, {passive:false});
 document.getElementById('startBtn').addEventListener('click', startGame);
-document.getElementById('restartBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); startGame(); }, {passive:false});
-document.getElementById('restartBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); showLobby(); }, {passive:false});
+document.getElementById('restartBtn').addEventListener('click', showLobby);
 
 window.addEventListener('resize', function(){
   camera.aspect = window.innerWidth/window.innerHeight;
@@ -2589,9 +3178,10 @@ window.addEventListener('resize', function(){
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-buildGunModel(currentWeapon());
+rebuildGunModel();
 updateHealthUI();
 updateAmmoUI();
+renderLobby();
 animate();
 
 })();
