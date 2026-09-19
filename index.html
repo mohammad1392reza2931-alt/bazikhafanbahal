@@ -355,6 +355,7 @@
       <label>اسم بازیکن: <span id="usernameVal">-</span></label>
       <div class="settingsBtnRow">
         <button class="smallBtn" id="changeUsernameBtn">✏️ تغییر اسم</button>
+        <button class="smallBtn" id="logoutBtn" style="background:#7a2a2a; box-shadow:0 3px 0 #4a1616;">🚪 خروج از حساب</button>
       </div>
     </div>
     <button class="bigBtn" id="settingsCloseBtn">بستن</button>
@@ -485,16 +486,19 @@
 
 <!-- modals live at body level so they always sit above lobby / start / game-over overlays -->
   <div id="usernameModalOverlay">
-    <h1 style="color:#5ad8ff; font-size:24px;">اسم بازیکن</h1>
-    <p>اسم بازیکن خودتو وارد کن:</p>
-    <input type="text" id="usernameModalInput" maxlength="20" placeholder="مثلاً Ali">
-    <button class="bigBtn" id="usernameModalConfirm" style="margin-top:18px;">تأیید</button>
+    <h1 style="color:#5ad8ff; font-size:24px;">ورود به حساب</h1>
+    <p>اسم و رمز حسابتو وارد کن (اگه حساب جدیده، همینجا ساخته میشه):</p>
+    <input type="text" id="usernameModalInput" maxlength="20" placeholder="اسم بازیکن (مثلاً Ali)">
+    <input type="password" id="usernameModalPassword" maxlength="30" placeholder="رمز عبور" style="margin-top:10px; width:80%; max-width:280px; padding:12px 14px; font-size:16px; text-align:center; border-radius:8px; border:1.5px solid #5ad8ff; background:rgba(255,255,255,0.08); color:#fff; outline:none;">
+    <div id="usernameModalStatus" style="min-height:20px; margin-top:8px; font-size:13px; color:#ffd23f;"></div>
+    <button class="bigBtn" id="usernameModalConfirm" style="margin-top:12px;">ورود / ساخت حساب</button>
   </div>
 
   <div id="restoreOverlay" style="display:none; z-index:1000; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(5,10,15,0.94); flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; color:#fff; text-align:center; padding:20px;">
     <h1 style="color:#5ad8ff; font-size:24px;">🔑 اتصال به حساب قدیمی</h1>
-    <p style="color:#aab; margin:8px 0 0; font-size:14px; max-width:320px; line-height:1.7;">اسم حساب قدیمی‌ات رو دقیقاً همون‌طور که بود بنویس. الماس‌ها، خریدها و پیشرفت اون حساب جایگزین اطلاعات فعلی این دستگاه می‌شن.</p>
+    <p style="color:#aab; margin:8px 0 0; font-size:14px; max-width:320px; line-height:1.7;">اسم و رمز حساب قدیمی‌ات رو وارد کن. الماس‌ها، خریدها و پیشرفت اون حساب جایگزین اطلاعات فعلی این دستگاه می‌شن.</p>
     <input type="text" id="restoreInput" maxlength="20" placeholder="اسم حساب قدیمی" style="margin-top:18px; width:80%; max-width:280px; padding:12px 14px; font-size:18px; text-align:center; border-radius:8px; border:1.5px solid #5ad8ff; background:rgba(255,255,255,0.08); color:#fff; outline:none; user-select:text; -webkit-user-select:text;">
+    <input type="password" id="restorePasswordInput" maxlength="30" placeholder="رمز عبور" style="margin-top:10px; width:80%; max-width:280px; padding:12px 14px; font-size:18px; text-align:center; border-radius:8px; border:1.5px solid #5ad8ff; background:rgba(255,255,255,0.08); color:#fff; outline:none;">
     <div id="restoreStatus" style="white-space:pre-line; min-height:22px; margin-top:12px; font-size:13px; max-width:320px; line-height:1.6;"></div>
     <div style="display:flex; gap:10px; margin-top:10px;">
       <button class="bigBtn" id="restoreConfirmBtn" style="margin-top:0; padding:12px 30px; font-size:16px;">اتصال</button>
@@ -1196,34 +1200,100 @@ let SAVE = loadSave();
 // ---------- Server sync (Cloudflare D1 via worker.js API) ----------
 const API_BASE = "https://bazikhafanbahalkhoob.astyw79.workers.dev";
 const USERNAME_KEY = 'strikeZoneUsername';
+const PASSWORD_KEY = 'strikeZoneUserPassword';
 function getUsername(){
   return localStorage.getItem(USERNAME_KEY) || 'Player';
+}
+function getPassword(){
+  return localStorage.getItem(PASSWORD_KEY) || '';
 }
 function showUsernameModal(currentValue, onConfirm){
   const overlay = document.getElementById('usernameModalOverlay');
   const input = document.getElementById('usernameModalInput');
+  const passInput = document.getElementById('usernameModalPassword');
   const confirmBtn = document.getElementById('usernameModalConfirm');
+  const statusEl = document.getElementById('usernameModalStatus');
   input.value = currentValue || '';
+  passInput.value = '';
+  statusEl.textContent = '';
   overlay.style.display = 'flex';
-  function submit(){
+  let busy = false;
+  async function submit(){
+    if(busy) return;
     const val = input.value.trim().slice(0,20);
-    if(!val) return;
-    overlay.style.display = 'none';
-    confirmBtn.removeEventListener('click', submit);
-    input.removeEventListener('keydown', onKey);
-    onConfirm(val);
+    const pass = passInput.value;
+    if(!val){ statusEl.textContent = 'اسم رو وارد کن.'; return; }
+    if(!pass){ statusEl.textContent = 'رمز رو وارد کن.'; return; }
+    busy = true;
+    confirmBtn.disabled = true; confirmBtn.style.opacity = '0.6';
+    statusEl.textContent = '⏳ در حال بررسی...';
+    try{
+      const res = await fetch(API_BASE + '/api/login', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({username:val, password:pass})
+      });
+      const data = await res.json();
+      if(data && data.error === 'wrong-password'){
+        statusEl.textContent = '❌ رمز این حساب اشتباهه.';
+        busy = false; confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
+        return;
+      }
+      if(data && data.found && data.saveData){
+        SAVE = Object.assign(defaultSave(), data.saveData, {
+          upgrades: Object.assign(defaultSave().upgrades, data.saveData.upgrades||{}),
+          skins: Object.assign(defaultSave().skins, data.saveData.skins||{}),
+          ownedSkins: Object.assign(defaultSave().ownedSkins, data.saveData.ownedSkins||{}),
+        });
+      } else {
+        // brand-new account: register it right now with this password
+        await fetch(API_BASE + '/api/save', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({username:val, password:pass, saveData:SAVE, bestScore:SAVE.bestScore||0})
+        });
+      }
+      localStorage.setItem(USERNAME_KEY, val);
+      localStorage.setItem(PASSWORD_KEY, pass);
+      try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
+      overlay.style.display = 'none';
+      confirmBtn.removeEventListener('click', submit);
+      input.removeEventListener('keydown', onKey);
+      passInput.removeEventListener('keydown', onKey);
+      try{ if(typeof applyEventWeaponUnlocks==='function') applyEventWeaponUnlocks(); }catch(e){}
+      onConfirm(val);
+    }catch(err){
+      statusEl.textContent = '❌ اتصال به سرور برقرار نشد.';
+    } finally {
+      busy = false; confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
+    }
   }
   function onKey(ev){ if(ev.key === 'Enter') submit(); }
   confirmBtn.addEventListener('click', submit);
   input.addEventListener('keydown', onKey);
+  passInput.addEventListener('keydown', onKey);
   setTimeout(()=>input.focus(), 50);
 }
 function ensureUsername(callback){
-  const existing = localStorage.getItem(USERNAME_KEY);
-  if(existing){ callback(existing); return; }
-  showUsernameModal('', function(val){
-    localStorage.setItem(USERNAME_KEY, val);
+  const existingUser = localStorage.getItem(USERNAME_KEY);
+  const existingPass = localStorage.getItem(PASSWORD_KEY);
+  if(existingUser && existingPass){ callback(existingUser); return; }
+  showUsernameModal(existingUser || '', function(val){
     callback(val);
+  });
+}
+function logoutAccount(){
+  clearTimeout(syncTimer);
+  syncSaveToServer(); // push the latest progress before leaving, so nothing is lost
+  localStorage.removeItem(USERNAME_KEY);
+  localStorage.removeItem(PASSWORD_KEY);
+  localStorage.removeItem(SAVE_KEY);
+  SAVE = defaultSave();
+  document.getElementById('lobbyOverlay').style.display = 'none';
+  document.getElementById('startOverlay').style.display = 'none';
+  document.getElementById('settingsOverlay').style.display = 'none';
+  ensureUsername(function(){
+    document.getElementById('usernameVal').textContent = getUsername();
+    renderLobby();
+    showLobby();
   });
 }
 let syncTimer = null;
@@ -1231,13 +1301,20 @@ function syncSaveToServer(){
   fetch(API_BASE + '/api/save', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ username: getUsername(), saveData: SAVE, bestScore: SAVE.bestScore||0 })
+    body: JSON.stringify({ username: getUsername(), password: getPassword(), saveData: SAVE, bestScore: SAVE.bestScore||0 })
   }).catch(()=>{});
 }
 async function loadFromServer(){
   try{
-    const res = await fetch(API_BASE + '/api/load?username=' + encodeURIComponent(getUsername()));
+    const res = await fetch(API_BASE + '/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username:getUsername(), password:getPassword()})
+    });
     const data = await res.json();
+    if(data && data.error === 'wrong-password'){
+      console.error('Stored password no longer matches the server for this account.');
+      return;
+    }
     if(data.found && data.saveData){
       SAVE = Object.assign(defaultSave(), data.saveData, {
         upgrades: Object.assign(defaultSave().upgrades, data.saveData.upgrades||{}),
@@ -1984,13 +2061,14 @@ sensSlider.addEventListener('input', function(){
 });
 function changeUsername(){
   showUsernameModal(getUsername(), function(val){
-    localStorage.setItem(USERNAME_KEY, val);
     document.getElementById('usernameVal').textContent = val;
-    loadFromServer();
+    renderLobby();
   });
 }
 document.getElementById('changeUsernameBtn').addEventListener('click', changeUsername);
 document.getElementById('changeUsernameBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); changeUsername(); }, {passive:false});
+document.getElementById('logoutBtn').addEventListener('click', logoutAccount);
+document.getElementById('logoutBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); logoutAccount(); }, {passive:false});
 document.getElementById('settingsCloseBtn').addEventListener('click', closeSettings);
 document.getElementById('settingsCloseBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); closeSettings(); }, {passive:false});
 
@@ -3221,6 +3299,7 @@ function restoreStatus(msg, color){
 }
 function openRestoreModal(){
   document.getElementById('restoreInput').value = '';
+  document.getElementById('restorePasswordInput').value = '';
   restoreStatus('');
   document.getElementById('restoreOverlay').style.display = 'flex';
   setTimeout(()=>document.getElementById('restoreInput').focus(), 50);
@@ -3228,16 +3307,18 @@ function openRestoreModal(){
 function closeRestoreModal(){ document.getElementById('restoreOverlay').style.display = 'none'; }
 let restoreBusy = false;
 // NOTE: no AbortController/signal here - some sandboxed previews can't pass an AbortSignal through postMessage
-function fetchWithTimeout(url, ms){
+function fetchWithTimeout(url, ms, options){
   return new Promise((resolve, reject)=>{
     const t = setTimeout(()=>{ const e = new Error('timeout'); e.name = 'AbortError'; reject(e); }, ms);
-    fetch(url).then(r=>{ clearTimeout(t); resolve(r); }, e=>{ clearTimeout(t); reject(e); });
+    fetch(url, options).then(r=>{ clearTimeout(t); resolve(r); }, e=>{ clearTimeout(t); reject(e); });
   });
 }
 async function restoreOldAccount(){
   if(restoreBusy) return;
   const name = document.getElementById('restoreInput').value.trim().slice(0,20);
+  const pass = document.getElementById('restorePasswordInput').value;
   if(!name){ restoreStatus('اسم حساب قدیمی رو بنویس.', '#ff9a9a'); return; }
+  if(!pass){ restoreStatus('رمز اون حساب رو هم بنویس.', '#ff9a9a'); return; }
   if(name === getUsername()){ restoreStatus('این همون حساب فعلی خودته!', '#ffd23f'); return; }
   restoreBusy = true;
   const confirmBtn = document.getElementById('restoreConfirmBtn');
@@ -3247,18 +3328,25 @@ async function restoreOldAccount(){
   try{
     let res;
     try{
-      res = await fetchWithTimeout(API_BASE + '/api/load?username=' + encodeURIComponent(name), 12000);
+      res = await fetchWithTimeout(API_BASE + '/api/login', 12000, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({username:name, password:pass})
+      });
     }catch(e){
       if(e && e.name === 'AbortError') fail('سرور جواب نداد (زمان انتظار تموم شد). اینترنت یا فیلترشکنت رو چک کن و دوباره امتحان کن.', 'timeout');
       else fail('به سرور وصل نشد. اینترنت یا فیلترشکنت رو چک کن و دوباره امتحان کن.', (e && e.message) || 'network error');
       return;
     }
-    if(!res.ok){ fail('سرور خطا داد.', 'HTTP ' + res.status); return; }
     let data;
     try{ data = await res.json(); }
     catch(e){ fail('جواب سرور نامعتبر بود.', 'bad response'); return; }
+    if(data && data.error === 'wrong-password'){
+      restoreStatus('❌ رمز این حساب اشتباهه.', '#ff9a9a');
+      return;
+    }
+    if(!res.ok && data.error !== 'wrong-password'){ fail('سرور خطا داد.', 'HTTP ' + res.status); return; }
     if(!data || !data.found || !data.saveData){
-      restoreStatus('❌ حسابی با این اسم پیدا نشد. املای اسم رو چک کن.', '#ff9a9a');
+      restoreStatus('❌ حسابی با این اسم و رمز پیدا نشد. املا رو چک کن.', '#ff9a9a');
       return;
     }
     clearTimeout(syncTimer); syncSaveToServer();     // push the current account to the server first so nothing is lost
@@ -3268,6 +3356,7 @@ async function restoreOldAccount(){
       ownedSkins: Object.assign(defaultSave().ownedSkins, data.saveData.ownedSkins||{}),
     });
     localStorage.setItem(USERNAME_KEY, name);
+    localStorage.setItem(PASSWORD_KEY, pass);
     try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
     applyEventWeaponUnlocks();
     closeRestoreModal();
@@ -3281,6 +3370,7 @@ document.getElementById('lobbyRestoreBtn').addEventListener('click', openRestore
 document.getElementById('restoreConfirmBtn').addEventListener('click', restoreOldAccount);
 document.getElementById('restoreCancelBtn').addEventListener('click', closeRestoreModal);
 document.getElementById('restoreInput').addEventListener('keydown', ev=>{ if(ev.key==='Enter') restoreOldAccount(); });
+document.getElementById('restorePasswordInput').addEventListener('keydown', ev=>{ if(ev.key==='Enter') restoreOldAccount(); });
 document.getElementById('dailyRewardBtn').addEventListener('click', claimDaily);
 document.getElementById('weeklyRewardBtn').addEventListener('click', claimWeekly);
 document.getElementById('lobbyEnterBtn').addEventListener('click', ()=>{
