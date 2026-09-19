@@ -429,6 +429,7 @@
 
   <div style="margin-top:18px; font-size:12px; color:#8ea0c8;">👤 حساب فعلی: <span id="lobbyAccountName" style="color:#fff; font-weight:bold;">-</span></div>
   <button class="bigBtn" id="lobbyRestoreBtn" style="margin-top:8px; margin-bottom:10px; padding:10px 24px; font-size:14px; background:#2b3a4a; color:#fff; box-shadow:0 4px 0 #16222e;">🔑 اتصال به حساب قدیمی</button>
+  <button class="bigBtn" id="lobbyLogoutBtn" style="margin-top:0; margin-bottom:10px; padding:10px 24px; font-size:14px; background:#7a2a2a; color:#fff; box-shadow:0 4px 0 #4a1616;">🚪 خروج از حساب</button>
 </div>
 
 <div class="overlay hidden" id="eventOverlay" style="display:none; overflow-y:auto; justify-content:flex-start; padding-top:26px;">
@@ -3367,6 +3368,8 @@ async function restoreOldAccount(){
   }
 }
 document.getElementById('lobbyRestoreBtn').addEventListener('click', openRestoreModal);
+document.getElementById('lobbyLogoutBtn').addEventListener('click', logoutAccount);
+document.getElementById('lobbyLogoutBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); logoutAccount(); }, {passive:false});
 document.getElementById('restoreConfirmBtn').addEventListener('click', restoreOldAccount);
 document.getElementById('restoreCancelBtn').addEventListener('click', closeRestoreModal);
 document.getElementById('restoreInput').addEventListener('keydown', ev=>{ if(ev.key==='Enter') restoreOldAccount(); });
