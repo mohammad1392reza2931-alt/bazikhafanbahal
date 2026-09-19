@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; -webkit-user-select:none; font-family:'Vazirmatn','Vazir',Tahoma,Arial,sans-serif; }
+  input, textarea { user-select:text; -webkit-user-select:text; }
   button, input, select, textarea { font-family:'Vazirmatn','Vazir',Tahoma,Arial,sans-serif; }
   html,body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; font-family: 'Vazirmatn', 'Vazir', Tahoma, Arial, sans-serif; }
   #gameCanvas { position:absolute; top:0; left:0; width:100%; height:100%; display:block; }
@@ -196,7 +197,7 @@
   #hidden { display:none; }
 
   #usernameModalOverlay {
-    display:none; z-index:400;
+    display:none; z-index:1000;
     position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(5,10,15,0.94);
     flex-direction:column; align-items:center; justify-content:center; pointer-events:auto;
     color:#fff; text-align:center; padding:20px;
@@ -359,24 +360,6 @@
     <button class="bigBtn" id="settingsCloseBtn">بستن</button>
   </div>
 
-  <div id="usernameModalOverlay">
-    <h1 style="color:#5ad8ff; font-size:24px;">اسم بازیکن</h1>
-    <p>اسم بازیکن خودتو وارد کن:</p>
-    <input type="text" id="usernameModalInput" maxlength="20" placeholder="مثلاً Ali">
-    <button class="bigBtn" id="usernameModalConfirm" style="margin-top:18px;">تأیید</button>
-  </div>
-
-  <div id="restoreOverlay" style="display:none; z-index:400; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(5,10,15,0.94); flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; color:#fff; text-align:center; padding:20px;">
-    <h1 style="color:#5ad8ff; font-size:24px;">🔑 اتصال به حساب قدیمی</h1>
-    <p style="color:#aab; margin:8px 0 0; font-size:14px; max-width:320px; line-height:1.7;">اسم حساب قدیمی‌ات رو دقیقاً همون‌طور که بود بنویس. الماس‌ها، خریدها و پیشرفت اون حساب جایگزین اطلاعات فعلی این دستگاه می‌شن.</p>
-    <input type="text" id="restoreInput" maxlength="20" placeholder="اسم حساب قدیمی" style="margin-top:18px; width:80%; max-width:280px; padding:12px 14px; font-size:18px; text-align:center; border-radius:8px; border:1.5px solid #5ad8ff; background:rgba(255,255,255,0.08); color:#fff; outline:none; user-select:text; -webkit-user-select:text;">
-    <div id="restoreStatus" style="min-height:22px; margin-top:12px; font-size:13px; max-width:320px; line-height:1.6;"></div>
-    <div style="display:flex; gap:10px; margin-top:10px;">
-      <button class="bigBtn" id="restoreConfirmBtn" style="margin-top:0; padding:12px 30px; font-size:16px;">اتصال</button>
-      <button class="bigBtn" id="restoreCancelBtn" style="margin-top:0; padding:12px 24px; font-size:16px; background:#333; color:#fff; box-shadow:0 6px 0 #111;">انصراف</button>
-    </div>
-  </div>
-
   <div id="waveBanner">
     <div class="wnum" id="waveNum">WAVE 1</div>
     <div class="wsub" id="waveSub">دشمنان در راهند...</div>
@@ -499,6 +482,25 @@
   </div>
   <button class="bigBtn" id="restartBtn">بازگشت به پایگاه</button>
 </div>
+
+<!-- modals live at body level so they always sit above lobby / start / game-over overlays -->
+  <div id="usernameModalOverlay">
+    <h1 style="color:#5ad8ff; font-size:24px;">اسم بازیکن</h1>
+    <p>اسم بازیکن خودتو وارد کن:</p>
+    <input type="text" id="usernameModalInput" maxlength="20" placeholder="مثلاً Ali">
+    <button class="bigBtn" id="usernameModalConfirm" style="margin-top:18px;">تأیید</button>
+  </div>
+
+  <div id="restoreOverlay" style="display:none; z-index:1000; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(5,10,15,0.94); flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; color:#fff; text-align:center; padding:20px;">
+    <h1 style="color:#5ad8ff; font-size:24px;">🔑 اتصال به حساب قدیمی</h1>
+    <p style="color:#aab; margin:8px 0 0; font-size:14px; max-width:320px; line-height:1.7;">اسم حساب قدیمی‌ات رو دقیقاً همون‌طور که بود بنویس. الماس‌ها، خریدها و پیشرفت اون حساب جایگزین اطلاعات فعلی این دستگاه می‌شن.</p>
+    <input type="text" id="restoreInput" maxlength="20" placeholder="اسم حساب قدیمی" style="margin-top:18px; width:80%; max-width:280px; padding:12px 14px; font-size:18px; text-align:center; border-radius:8px; border:1.5px solid #5ad8ff; background:rgba(255,255,255,0.08); color:#fff; outline:none; user-select:text; -webkit-user-select:text;">
+    <div id="restoreStatus" style="white-space:pre-line; min-height:22px; margin-top:12px; font-size:13px; max-width:320px; line-height:1.6;"></div>
+    <div style="display:flex; gap:10px; margin-top:10px;">
+      <button class="bigBtn" id="restoreConfirmBtn" style="margin-top:0; padding:12px 30px; font-size:16px;">اتصال</button>
+      <button class="bigBtn" id="restoreCancelBtn" style="margin-top:0; padding:12px 24px; font-size:16px; background:#333; color:#fff; box-shadow:0 6px 0 #111;">انصراف</button>
+    </div>
+  </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -1243,6 +1245,10 @@ async function loadFromServer(){
         ownedSkins: Object.assign(defaultSave().ownedSkins, data.saveData.ownedSkins||{}),
       });
       try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
+      try{ if(typeof applyEventWeaponUnlocks==='function') applyEventWeaponUnlocks(); }catch(e){}
+      try{ if(typeof renderLobby==='function') renderLobby(); }catch(e){}
+    } else if(data && data.found === false){
+      syncSaveToServer();   // this name isn't on the server yet -> upload the local save so the account can be restored later
     }
   }catch(e){}
 }
@@ -3221,6 +3227,13 @@ function openRestoreModal(){
 }
 function closeRestoreModal(){ document.getElementById('restoreOverlay').style.display = 'none'; }
 let restoreBusy = false;
+// NOTE: no AbortController/signal here - some sandboxed previews can't pass an AbortSignal through postMessage
+function fetchWithTimeout(url, ms){
+  return new Promise((resolve, reject)=>{
+    const t = setTimeout(()=>{ const e = new Error('timeout'); e.name = 'AbortError'; reject(e); }, ms);
+    fetch(url).then(r=>{ clearTimeout(t); resolve(r); }, e=>{ clearTimeout(t); reject(e); });
+  });
+}
 async function restoreOldAccount(){
   if(restoreBusy) return;
   const name = document.getElementById('restoreInput').value.trim().slice(0,20);
@@ -3230,30 +3243,39 @@ async function restoreOldAccount(){
   const confirmBtn = document.getElementById('restoreConfirmBtn');
   confirmBtn.disabled = true; confirmBtn.style.opacity = '0.6';
   restoreStatus('⏳ در حال اتصال به حساب...', '#5ad8ff');
+  const fail = (msg, detail)=>restoreStatus('❌ ' + msg + (detail ? '\n(' + detail + ')' : ''), '#ff9a9a');
   try{
-    const res = await fetch(API_BASE + '/api/load?username=' + encodeURIComponent(name));
-    const data = await res.json();
-    if(!data.found || !data.saveData){
-      restoreStatus('❌ حسابی با این اسم پیدا نشد. املای اسم رو چک کن.', '#ff9a9a');
-    } else {
-      clearTimeout(syncTimer); syncSaveToServer();     // push the current account to the server first so nothing is lost
-      const d = defaultSave();
-      SAVE = Object.assign(d, data.saveData, {
-        upgrades: Object.assign(defaultSave().upgrades, data.saveData.upgrades||{}),
-        skins: Object.assign(defaultSave().skins, data.saveData.skins||{}),
-        ownedSkins: Object.assign(defaultSave().ownedSkins, data.saveData.ownedSkins||{}),
-      });
-      localStorage.setItem(USERNAME_KEY, name);
-      try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
-      applyEventWeaponUnlocks();
-      closeRestoreModal();
-      renderLobby();
+    let res;
+    try{
+      res = await fetchWithTimeout(API_BASE + '/api/load?username=' + encodeURIComponent(name), 12000);
+    }catch(e){
+      if(e && e.name === 'AbortError') fail('سرور جواب نداد (زمان انتظار تموم شد). اینترنت یا فیلترشکنت رو چک کن و دوباره امتحان کن.', 'timeout');
+      else fail('به سرور وصل نشد. اینترنت یا فیلترشکنت رو چک کن و دوباره امتحان کن.', (e && e.message) || 'network error');
+      return;
     }
-  }catch(e){
-    restoreStatus('❌ اتصال به سرور ناموفق بود. اینترنتت رو چک کن و دوباره امتحان کن.', '#ff9a9a');
+    if(!res.ok){ fail('سرور خطا داد.', 'HTTP ' + res.status); return; }
+    let data;
+    try{ data = await res.json(); }
+    catch(e){ fail('جواب سرور نامعتبر بود.', 'bad response'); return; }
+    if(!data || !data.found || !data.saveData){
+      restoreStatus('❌ حسابی با این اسم پیدا نشد. املای اسم رو چک کن.', '#ff9a9a');
+      return;
+    }
+    clearTimeout(syncTimer); syncSaveToServer();     // push the current account to the server first so nothing is lost
+    SAVE = Object.assign(defaultSave(), data.saveData, {
+      upgrades: Object.assign(defaultSave().upgrades, data.saveData.upgrades||{}),
+      skins: Object.assign(defaultSave().skins, data.saveData.skins||{}),
+      ownedSkins: Object.assign(defaultSave().ownedSkins, data.saveData.ownedSkins||{}),
+    });
+    localStorage.setItem(USERNAME_KEY, name);
+    try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
+    applyEventWeaponUnlocks();
+    closeRestoreModal();
+    renderLobby();
+  } finally {
+    restoreBusy = false;
+    confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
   }
-  restoreBusy = false;
-  confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
 }
 document.getElementById('lobbyRestoreBtn').addEventListener('click', openRestoreModal);
 document.getElementById('restoreConfirmBtn').addEventListener('click', restoreOldAccount);
