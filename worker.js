@@ -34,6 +34,18 @@ function getRelayNamespace(env) {
   return env.RELAY || env.ARENA || findBinding(env, (v) => typeof v.idFromName === "function");
 }
 
+// ---------- password hashing (SHA-256 + per-account salt) ----------
+async function hashPassword(password, salt) {
+  const enc = new TextEncoder();
+  const buf = await crypto.subtle.digest("SHA-256", enc.encode(salt + ":" + password));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function randomSalt() {
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 // ---------- D1 helpers (tables are created automatically) ----------
 let schemaReady = false;
 async function ensureSchema(DB) {
@@ -49,9 +61,14 @@ async function ensureSchema(DB) {
     `CREATE TABLE IF NOT EXISTS player_saves (
        username TEXT PRIMARY KEY COLLATE NOCASE,
        save_data TEXT NOT NULL,
+       password_hash TEXT,
+       password_salt TEXT,
        updated_at INTEGER NOT NULL
      )`
   ).run();
+  // migrate a table created before password columns existed (errors if columns already exist -> ignored)
+  try { await DB.prepare(`ALTER TABLE player_saves ADD COLUMN password_hash TEXT`).run(); } catch (e) {}
+  try { await DB.prepare(`ALTER TABLE player_saves ADD COLUMN password_salt TEXT`).run(); } catch (e) {}
   schemaReady = true;
 }
 
@@ -65,24 +82,43 @@ async function upsertScore(DB, username, score) {
   ).bind(username, score, Date.now()).run();
 }
 
-// POST /api/save  { username, saveData, bestScore }
+// POST /api/save  { username, password, saveData, bestScore }
+// First save for a username registers it with that password; later saves must match it.
+// A legacy account with no password yet (saved before this feature existed) gets secured
+// by whatever password is sent on its next save.
 async function handleSave(request, DB) {
   let body;
   try { body = await request.json(); } catch (e) { return jsonResponse({ error: "invalid json" }, 400); }
   const username = String(body.username || "").trim().slice(0, 20);
+  const password = String(body.password || "");
   if (!username) return jsonResponse({ error: "username required" }, 400);
+  if (!password) return jsonResponse({ error: "password required" }, 400);
   if (!body.saveData || typeof body.saveData !== "object") return jsonResponse({ error: "saveData required" }, 400);
   const json = JSON.stringify(body.saveData);
   if (json.length > 100000) return jsonResponse({ error: "saveData too large" }, 413);
 
   await ensureSchema(DB);
+  const existing = await DB.prepare("SELECT password_hash, password_salt FROM player_saves WHERE username = ?").bind(username).first();
+
+  let salt, hash;
+  if (existing && existing.password_hash) {
+    salt = existing.password_salt;
+    hash = await hashPassword(password, salt);
+    if (hash !== existing.password_hash) return jsonResponse({ error: "wrong-password" }, 401);
+  } else {
+    salt = randomSalt();
+    hash = await hashPassword(password, salt);
+  }
+
   await DB.prepare(
-    `INSERT INTO player_saves (username, save_data, updated_at)
-     VALUES (?, ?, ?)
+    `INSERT INTO player_saves (username, save_data, password_hash, password_salt, updated_at)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(username) DO UPDATE SET
        save_data = excluded.save_data,
+       password_hash = excluded.password_hash,
+       password_salt = excluded.password_salt,
        updated_at = excluded.updated_at`
-  ).bind(username, json, Date.now()).run();
+  ).bind(username, json, hash, salt, Date.now()).run();
 
   const score = Number.isFinite(body.bestScore) ? Math.max(0, Math.floor(body.bestScore)) : 0;
   if (score > 0) {
@@ -91,13 +127,20 @@ async function handleSave(request, DB) {
   return jsonResponse({ ok: true });
 }
 
-// GET /api/load?username=...
-async function handleLoad(url, DB) {
-  const username = String(url.searchParams.get("username") || "").trim().slice(0, 20);
+// POST /api/login  { username, password }  -> { found, saveData } or { error:"wrong-password" }
+async function handleLogin(request, DB) {
+  let body;
+  try { body = await request.json(); } catch (e) { return jsonResponse({ error: "invalid json" }, 400); }
+  const username = String(body.username || "").trim().slice(0, 20);
+  const password = String(body.password || "");
   if (!username) return jsonResponse({ found: false });
   await ensureSchema(DB);
-  const row = await DB.prepare("SELECT save_data FROM player_saves WHERE username = ?").bind(username).first();
+  const row = await DB.prepare("SELECT save_data, password_hash, password_salt FROM player_saves WHERE username = ?").bind(username).first();
   if (!row) return jsonResponse({ found: false });
+  if (row.password_hash) {
+    const hash = await hashPassword(password, row.password_salt);
+    if (hash !== row.password_hash) return jsonResponse({ error: "wrong-password" }, 401);
+  }
   let saveData;
   try { saveData = JSON.parse(row.save_data); } catch (e) { return jsonResponse({ found: false }); }
   return jsonResponse({ found: true, saveData });
@@ -137,7 +180,7 @@ export default {
       if (isApi) {
         const DB = getDB(env);
         if (url.pathname === "/api/save" && request.method === "POST") return DB ? await handleSave(request, DB) : NO_DB();
-        if (url.pathname === "/api/load" && request.method === "GET") return DB ? await handleLoad(url, DB) : NO_DB();
+        if (url.pathname === "/api/login" && request.method === "POST") return DB ? await handleLogin(request, DB) : NO_DB();
         if (url.pathname === "/api/submit" && request.method === "POST") return DB ? await handleSubmit(request, DB) : NO_DB();
         if (url.pathname === "/api/leaderboard" && request.method === "GET") return DB ? await handleLeaderboard(DB) : NO_DB();
         return jsonResponse({ error: "not found" }, 404);
