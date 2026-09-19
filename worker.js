@@ -97,8 +97,90 @@ export class Relay {
   }
 }
 
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+function jsonResponse(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "Content-Type": "application/json", ...CORS },
+  });
+}
+
+function cleanUsername(raw) {
+  return String(raw || "").trim().slice(0, 20);
+}
+
+async function handleSave(request, env) {
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return jsonResponse({ error: "invalid json" }, 400);
+  }
+  const username = cleanUsername(body.username);
+  if (!username) return jsonResponse({ error: "username required" }, 400);
+
+  const saveData = JSON.stringify(body.saveData || {});
+  const bestScore = Number.isFinite(body.bestScore) ? body.bestScore : 0;
+  const now = Date.now();
+
+  await env.DB.prepare(
+    `INSERT INTO players (username, save_data, best_score, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(username) DO UPDATE SET
+       save_data = excluded.save_data,
+       best_score = MAX(players.best_score, excluded.best_score),
+       updated_at = excluded.updated_at`
+  ).bind(username, saveData, bestScore, now).run();
+
+  return jsonResponse({ ok: true });
+}
+
+async function handleLoad(request, env) {
+  const url = new URL(request.url);
+  const username = cleanUsername(url.searchParams.get("username"));
+  if (!username) return jsonResponse({ error: "username required" }, 400);
+
+  const row = await env.DB.prepare(
+    "SELECT save_data, best_score FROM players WHERE username = ?"
+  ).bind(username).first();
+
+  if (!row) return jsonResponse({ found: false });
+
+  let saveData = {};
+  try { saveData = JSON.parse(row.save_data); } catch (e) {}
+  return jsonResponse({ found: true, saveData, bestScore: row.best_score });
+}
+
+async function handleLeaderboard(env) {
+  const { results } = await env.DB.prepare(
+    "SELECT username, best_score FROM players ORDER BY best_score DESC LIMIT 10"
+  ).all();
+  return jsonResponse({ leaderboard: results });
+}
+
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+      return new Response(null, { headers: CORS });
+    }
+    if (url.pathname === "/api/save" && request.method === "POST") {
+      return handleSave(request, env);
+    }
+    if (url.pathname === "/api/load" && request.method === "GET") {
+      return handleLoad(request, env);
+    }
+    if (url.pathname === "/api/leaderboard" && request.method === "GET") {
+      return handleLeaderboard(env);
+    }
+
+    // fallback: existing WebSocket relay for co-op
     const id = env.RELAY.idFromName("global-room-manager");
     const stub = env.RELAY.get(id);
     return stub.fetch(request);
