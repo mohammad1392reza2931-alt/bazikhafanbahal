@@ -473,6 +473,18 @@
   <button class="bigBtn" id="netCloseBtn" style="background:#333;margin-top:10px;">بازگشت</button>
 </div>
 
+<!-- solo revive: pay diamonds to come back after dying -->
+<div class="overlay hidden" id="soloReviveOverlay" style="display:none; z-index:150;">
+  <h1 style="color:#ff4040; font-size:34px;">💀 مردی!</h1>
+  <h2 style="color:#fff;">می‌خوای با الماس زنده بشی؟</h2>
+  <div id="soloReviveTimerNum" style="font-size:46px; font-weight:bold; color:#ffd23f; text-shadow:0 2px 6px #000; line-height:1.1;">5</div>
+  <div style="width:200px; height:8px; background:rgba(255,255,255,0.15); border-radius:4px; overflow:hidden; margin:6px 0 4px;"><div id="soloReviveTimerBar" style="height:100%; width:100%; background:#ffd23f;"></div></div>
+  <p>موج <b id="soloReviveWave">1</b> — امتیاز <b id="soloReviveScore">0</b></p>
+  <p style="color:#5ad8ff; font-size:16px;">موجودی: 💎 <b id="soloReviveBal">0</b></p>
+  <button class="bigBtn" id="soloReviveBtn" style="margin-top:14px; background:linear-gradient(180deg,#ff8a9a,#e0364f); color:#fff; box-shadow:0 6px 0 #8f1f31, 0 10px 20px rgba(0,0,0,0.5);">❤️ ریوایو &nbsp;💎 <span id="soloReviveCost">50</span></button>
+  <button class="bigBtn" id="soloReviveDeclineBtn" style="margin-top:14px; padding:12px 34px; font-size:15px; background:#333; color:#fff; box-shadow:0 5px 0 #111;">پایان بازی</button>
+</div>
+
 <div class="overlay hidden" id="gameOverOverlay" style="display:none;">
   <h1 id="goTitle">GAME OVER</h1>
   <h2 id="goSub">تو کشته شدی</h2>
@@ -1124,6 +1136,13 @@ let ammoState = WEAPONS.map(w=>({ammo:w.mag, reloading:false, timer:null, reserv
 let score = 0, wave = 0, coins = 0;
 let enemiesAliveCount = 0;
 let gameStarted = false, gameOver = false, shopOpen = false, settingsOpen = false;
+// solo revive (pay diamonds after dying)
+const REVIVE_BASE_COST = 50;   // first revive in a run
+const REVIVE_COST_STEP = 25;   // every further revive in the same run costs this much more
+const REVIVE_INVULN_TIME = 3;  // seconds of protection right after reviving
+const REVIVE_DECISION_TIME = 5;   // seconds the player has to decide; after that the game-over screen appears
+let reviveOpen = false, revivesUsed = 0, reviveInvulnTimer = 0;
+let reviveTimerId = null, reviveDeadline = 0;
 let lastShotTime = 0;
 // ---- Co-op networking state ----
 let gameMode = 'solo'; // 'solo' | 'coopHost' | 'coopClient'
@@ -2225,7 +2244,7 @@ function updateThrowableUI(){
 }
 
 function throwGrenade(type){
-  if(!gameStarted || gameOver || shopOpen || settingsOpen || player.downed) return;
+  if(!gameStarted || gameOver || shopOpen || settingsOpen || reviveOpen || player.downed) return;
   if(type==='frag' && player.grenadeCount<=0) return;
   if(type==='smoke' && player.smokeCount<=0) return;
   if(type==='frag') player.grenadeCount--; else player.smokeCount--;
@@ -2529,7 +2548,7 @@ document.getElementById('reloadBtn').addEventListener('touchstart', function(ev)
 
 const jumpBtn = document.getElementById('jumpBtn');
 function tryJump(){
-  if(!gameStarted || gameOver || shopOpen || settingsOpen || player.downed) return;
+  if(!gameStarted || gameOver || shopOpen || settingsOpen || reviveOpen || player.downed) return;
   if(player.grounded){
     player.velY = JUMP_FORCE;
     player.grounded = false;
@@ -2541,7 +2560,7 @@ jumpBtn.addEventListener('click', tryJump);
 
 const aimBtn = document.getElementById('aimBtn');
 function setAiming(on){
-  if(on && (!gameStarted || gameOver || shopOpen || settingsOpen || player.downed)) return;
+  if(on && (!gameStarted || gameOver || shopOpen || settingsOpen || reviveOpen || player.downed)) return;
   aiming = on;
   aimBtn.classList.toggle('pressed', on);
   const isSniper = currentWeapon().key === 'sniper';
@@ -2649,7 +2668,7 @@ function updateTracers(dt){
 function shoot(){
   const weapon = currentWeapon();
   const ammoS = currentAmmoState();
-  if(!gameStarted || gameOver || shopOpen || settingsOpen) return;
+  if(!gameStarted || gameOver || shopOpen || settingsOpen || reviveOpen) return;
   if(!weapon.melee && ammoS.ammo<=0 && !ammoS.reloading){ doReload(); return; }
   if(ammoS.reloading || ammoS.ammo<=0) return;
   const now = performance.now();
@@ -2786,7 +2805,7 @@ let lastNoAmmoMsg = 0;
 function doReload(){
   const weapon = currentWeapon();
   const ammoS = currentAmmoState();
-  if(!gameStarted || gameOver || shopOpen || settingsOpen || player.downed) return;
+  if(!gameStarted || gameOver || shopOpen || settingsOpen || reviveOpen || player.downed) return;
   if(weapon.melee) return;
   if(ammoS.reloading || ammoS.ammo === weapon.mag) return;
   if(ammoS.reserve <= 0){
@@ -2825,7 +2844,8 @@ function switchWeapon(i){
 
 // ---------- Damage to player ----------
 function damagePlayer(amount){
-  if(!player.alive || player.downed) return;
+  if(!player.alive || player.downed || reviveOpen) return;
+  if(reviveInvulnTimer > 0) return;   // brief protection right after a paid revive
   player.hp -= amount;
   playHurt();
   const df = document.getElementById('damageFlash');
@@ -2837,6 +2857,8 @@ function damagePlayer(amount){
     // co-op: if a teammate is alive and not already downed themselves, go down instead of dying outright
     if(gameMode!=='solo' && remotePlayer && remotePlayer.alive!==false && !remotePlayer.downed){
       enterDowned();
+    } else if(gameMode==='solo' && canAffordRevive()){
+      openSoloRevive();
     } else {
       player.alive = false;
       if(gameMode!=='solo') netSend({t:'dead'});
@@ -2849,6 +2871,61 @@ function damagePlayer(amount){
 function updateHealthUI(){
   document.getElementById('healthBarFg').style.width = Math.max(0,(player.hp/player.maxHp*100))+'%';
 }
+
+// ---------- Solo revive with diamonds ----------
+function soloReviveCost(){ return REVIVE_BASE_COST + REVIVE_COST_STEP * revivesUsed; }
+function reviveDevMode(){ return (typeof DEV_MODE !== 'undefined') && DEV_MODE; }
+function canAffordRevive(){ return reviveDevMode() || SAVE.diamonds >= soloReviveCost(); }
+function stopReviveTimer(){ if(reviveTimerId){ clearInterval(reviveTimerId); reviveTimerId = null; } }
+function updateReviveTimerUI(){
+  const left = Math.max(0, reviveDeadline - performance.now());
+  document.getElementById('soloReviveTimerNum').textContent = Math.ceil(left/1000);
+  document.getElementById('soloReviveTimerBar').style.width = (left / (REVIVE_DECISION_TIME*1000) * 100) + '%';
+  if(left <= 0) soloReviveDecline();   // time is up -> game over
+}
+function openSoloRevive(){
+  reviveOpen = true;
+  firing = false;
+  if(aiming) setAiming(false);
+  document.getElementById('soloReviveWave').textContent = wave;
+  document.getElementById('soloReviveScore').textContent = score;
+  document.getElementById('soloReviveBal').textContent = reviveDevMode() ? '∞' : SAVE.diamonds;
+  document.getElementById('soloReviveCost').textContent = soloReviveCost();
+  document.getElementById('soloReviveOverlay').style.display = 'flex';
+  stopReviveTimer();
+  reviveDeadline = performance.now() + REVIVE_DECISION_TIME*1000;
+  updateReviveTimerUI();
+  reviveTimerId = setInterval(updateReviveTimerUI, 100);
+}
+function closeSoloRevive(){
+  stopReviveTimer();
+  reviveOpen = false;
+  document.getElementById('soloReviveOverlay').style.display = 'none';
+}
+function soloReviveConfirm(){
+  if(!reviveOpen) return;
+  const cost = soloReviveCost();
+  if(!reviveDevMode() && SAVE.diamonds < cost) return;
+  if(!reviveDevMode()) SAVE.diamonds -= cost;
+  revivesUsed++;
+  saveGame();
+  closeSoloRevive();
+  player.alive = true;
+  player.hp = player.maxHp;
+  reviveInvulnTimer = REVIVE_INVULN_TIME;
+  updateHealthUI();
+  showKillFeedMsg('❤️ زنده شدی! ' + REVIVE_INVULN_TIME + ' ثانیه ایمنی');
+}
+function soloReviveDecline(){
+  if(!reviveOpen) return;
+  closeSoloRevive();
+  player.alive = false;
+  endGame(false);
+}
+document.getElementById('soloReviveBtn').addEventListener('click', soloReviveConfirm);
+document.getElementById('soloReviveBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); soloReviveConfirm(); }, {passive:false});
+document.getElementById('soloReviveDeclineBtn').addEventListener('click', soloReviveDecline);
+document.getElementById('soloReviveDeclineBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); soloReviveDecline(); }, {passive:false});
 
 // ---------- Downed / revive (co-op) ----------
 function enterDowned(){
@@ -2964,21 +3041,45 @@ function setCameraMode(mode){
   document.getElementById('camFirstBtn').classList.toggle('active', !isThird);
   document.getElementById('camThirdBtn').classList.toggle('active', isThird);
 }
+const camRay = new THREE.Raycaster();
+const camRayOrigin = new THREE.Vector3(), camRayDir = new THREE.Vector3();
+const CAM_WALL_MARGIN = 0.35;   // keep the camera this far in front of a surface
+let thirdCamFactor = 1;         // 1 = full distance, smaller = pulled in
+function thirdPersonCamFactor(){
+  const full = THIRD_PERSON_OFFSET.z, oy = THIRD_PERSON_OFFSET.y;
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  // camera offset (0, oy, full) rotated by pitch, then yaw -> world-space offset from the head
+  const zr = oy*sp + full*cp, yr = oy*cp - full*sp;
+  const ox = zr*Math.sin(yaw), oz = zr*Math.cos(yaw);
+  const len = Math.sqrt(ox*ox + yr*yr + oz*oz);
+  camRayDir.set(ox/len, yr/len, oz/len);
+  const lx = Math.cos(yaw)*0.25, lz = -Math.sin(yaw)*0.25;   // side offset, so grazing a wall at an angle is caught too
+  const blockers = obstacles.concat(walls);
+  let f = 1;
+  for(const [side, dy] of [[0, 0], [1, 0], [-1, 0], [0, -0.15]]){   // centre, left, right, slightly lower (so skimming over a crate top is caught)
+    camRayOrigin.set(camHolder.position.x + lx*side, camHolder.position.y + dy, camHolder.position.z + lz*side);
+    camRay.set(camRayOrigin, camRayDir);
+    camRay.far = len + CAM_WALL_MARGIN;
+    const hits = camRay.intersectObjects(blockers, false);
+    if(hits.length) f = Math.min(f, Math.max(0.12, (hits[0].distance - CAM_WALL_MARGIN) / len));
+  }
+  if(yr < 0){   // looking up swings the camera down: never let it go under the floor
+    f = Math.min(f, Math.max(0.12, (camHolder.position.y - 0.25) / (-yr)));
+  }
+  return f;
+}
 function updateCameraRig(){
   if(cameraMode==='third'){
     if(localAvatar.userData.skinId !== SAVE.skins.player) refreshLocalAvatarSkin();
     localAvatar.position.set(camHolder.position.x, camHolder.position.y - player.eyeHeight, camHolder.position.z);
     localAvatar.rotation.y = yaw;
-    // pull the camera back/up behind the player's head; shrink distance if it would clip into geometry
-    let dist = THIRD_PERSON_OFFSET.z;
-    const dirX = Math.sin(yaw)*Math.cos(pitch), dirZ = Math.cos(yaw)*Math.cos(pitch);
-    for(let step=0; step<6; step++){
-      const testX = camHolder.position.x + dirX*dist;
-      const testZ = camHolder.position.z + dirZ*dist;
-      if(!collidesWithObstacle(testX, testZ, 0.4)) break;
-      dist *= 0.7;
-    }
-    camera.position.set(0, THIRD_PERSON_OFFSET.y, dist);
+    // pull the camera back/up behind the player's head; a raycast from the head towards the camera
+    // stops it in front of any wall or crate, so it can never end up behind (or inside) geometry
+    const target = thirdPersonCamFactor();
+    if(target < thirdCamFactor) thirdCamFactor = target;                 // snap in instantly when something is in the way
+    else thirdCamFactor += (target - thirdCamFactor) * 0.15;             // ease back out smoothly
+    camera.position.set(0, THIRD_PERSON_OFFSET.y * thirdCamFactor, THIRD_PERSON_OFFSET.z * thirdCamFactor);
+    localAvatar.visible = (THIRD_PERSON_OFFSET.z * thirdCamFactor) > 0.9;   // camera is inside the body -> hide it
   } else {
     camera.position.set(0,0,0);
   }
@@ -3496,12 +3597,13 @@ function animate(){
   clouds.forEach(c=>{ c.position.x += c.userData.speed*dt; if(c.position.x > ARENA*1.3) c.position.x = -ARENA*1.3; });
 
   // in co-op the host's simulation drives BOTH players, so opening the settings menu must not pause the world
-  const worldPaused = shopOpen || (settingsOpen && gameMode==='solo');
+  const worldPaused = shopOpen || reviveOpen || (settingsOpen && gameMode==='solo');
   if(gameStarted && !gameOver && !worldPaused){
    try{
     // camera rotation
     camHolder.rotation.y = yaw;
     pitchObj.rotation.x = pitch;
+    if(reviveInvulnTimer > 0) reviveInvulnTimer -= dt;
 
     if(player.downed){
       // downed: no movement/shooting — just count down and wait to be revived (or bleed out)
@@ -3769,6 +3871,8 @@ function startGame(){
   player.alive = true;
   player.downed = false;
   downedTimer = 0;
+  revivesUsed = 0; reviveInvulnTimer = 0; reviveOpen = false; stopReviveTimer();
+  document.getElementById('soloReviveOverlay').style.display = 'none';
   document.getElementById('downedOverlay').style.display = 'none';
   document.getElementById('reviveBtn').style.display = 'none';
   player.velY = 0; player.grounded = true;
@@ -3810,6 +3914,8 @@ function startGame(){
 
 function endGame(won, customSub){
   const wasCoop = gameMode!=='solo';
+  reviveOpen = false; stopReviveTimer();
+  document.getElementById('soloReviveOverlay').style.display = 'none';
   gameOver = true;
   gameStarted = false;
   shopOpen = false;
