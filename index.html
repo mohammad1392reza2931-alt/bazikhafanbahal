@@ -53,10 +53,22 @@
     background:rgba(30,34,40,0.7); border:2px solid rgba(255,255,255,0.35); color:#dfe6ea;
     font-size:20px; display:flex; align-items:center; justify-content:center; pointer-events:auto; z-index:210;
   }
-  #settingsOverlay { display:none; z-index:205; }
-  .settingsRow { width:100%; max-width:320px; margin:18px 0; text-align:right; }
-  .settingsRow label { display:block; font-size:14px; color:#cde; margin-bottom:8px; }
+  #settingsOverlay {
+    display:none; z-index:205;
+    overflow-y:auto; justify-content:flex-start; padding-top:16px; padding-bottom:16px;
+    touch-action:pan-y;
+  }
+  #settingsOverlay h1 { margin:4px 0 10px; }
+  .settingsRow { width:100%; max-width:320px; margin:10px 0; text-align:right; }
+  .settingsRow label { display:block; font-size:14px; color:#cde; margin-bottom:6px; }
   .settingsRow input[type=range] { width:100%; }
+  #settingsOverlay .bigBtn { margin-top:12px; padding:12px 40px; }
+  @media (orientation: landscape) {
+    #settingsOverlay h1 { font-size:20px !important; margin:2px 0 6px; }
+    .settingsRow { margin:6px 0; }
+    .settingsRow label { margin-bottom:4px; }
+    #settingsOverlay .bigBtn { margin-top:8px; padding:8px 32px; font-size:16px; }
+  }
   #sensVal { color:#5ad8ff; font-weight:bold; }
   .editable { outline:2px dashed #5ad8ff; outline-offset:3px; box-shadow:0 0 10px rgba(90,216,255,0.6); }
   #editModeHint {
