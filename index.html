@@ -366,6 +366,17 @@
     <button class="bigBtn" id="usernameModalConfirm" style="margin-top:18px;">تأیید</button>
   </div>
 
+  <div id="restoreOverlay" style="display:none; z-index:400; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(5,10,15,0.94); flex-direction:column; align-items:center; justify-content:center; pointer-events:auto; color:#fff; text-align:center; padding:20px;">
+    <h1 style="color:#5ad8ff; font-size:24px;">🔑 اتصال به حساب قدیمی</h1>
+    <p style="color:#aab; margin:8px 0 0; font-size:14px; max-width:320px; line-height:1.7;">اسم حساب قدیمی‌ات رو دقیقاً همون‌طور که بود بنویس. الماس‌ها، خریدها و پیشرفت اون حساب جایگزین اطلاعات فعلی این دستگاه می‌شن.</p>
+    <input type="text" id="restoreInput" maxlength="20" placeholder="اسم حساب قدیمی" style="margin-top:18px; width:80%; max-width:280px; padding:12px 14px; font-size:18px; text-align:center; border-radius:8px; border:1.5px solid #5ad8ff; background:rgba(255,255,255,0.08); color:#fff; outline:none; user-select:text; -webkit-user-select:text;">
+    <div id="restoreStatus" style="min-height:22px; margin-top:12px; font-size:13px; max-width:320px; line-height:1.6;"></div>
+    <div style="display:flex; gap:10px; margin-top:10px;">
+      <button class="bigBtn" id="restoreConfirmBtn" style="margin-top:0; padding:12px 30px; font-size:16px;">اتصال</button>
+      <button class="bigBtn" id="restoreCancelBtn" style="margin-top:0; padding:12px 24px; font-size:16px; background:#333; color:#fff; box-shadow:0 6px 0 #111;">انصراف</button>
+    </div>
+  </div>
+
   <div id="waveBanner">
     <div class="wnum" id="waveNum">WAVE 1</div>
     <div class="wsub" id="waveSub">دشمنان در راهند...</div>
@@ -418,7 +429,10 @@
   </div>
 
   <div style="width:100%; max-width:380px; background:rgba(255,255,255,0.06); border-radius:10px; padding:12px; margin-bottom:14px;">
-    <h3 style="color:#9ff; font-size:15px; margin:0 0 8px;">📋 ماموریت‌های امروز</h3>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0 0 8px;">
+      <h3 style="color:#9ff; font-size:15px; margin:0;">📋 ماموریت‌های امروز</h3>
+      <button class="smallBtn" id="resetMissionsBtn" style="padding:7px 10px; font-size:11px; line-height:1.35; white-space:nowrap; background:#1f8fa8; box-shadow:0 3px 0 #0f5566;">🔄 ماموریت جدید<br>💎 60</button>
+    </div>
     <div id="missionsList"></div>
     <div style="font-size:10px; color:#8ea0c8; margin-top:4px;">با الماس می‌تونی ماموریت رو رد کنی، ولی جایزه‌ی اون ماموریت رو نمی‌گیری.</div>
   </div>
@@ -428,6 +442,9 @@
   <button class="bigBtn" id="lobbyShopBtn" style="margin-top:0; margin-bottom:14px; background:linear-gradient(180deg,#c77dff,#7b2ff7);">🛒 فروشگاه الماس</button>
 
   <button class="bigBtn" id="lobbyEnterBtn" style="margin-top:0;">▶ ورود به میدان نبرد</button>
+
+  <div style="margin-top:18px; font-size:12px; color:#8ea0c8;">👤 حساب فعلی: <span id="lobbyAccountName" style="color:#fff; font-weight:bold;">-</span></div>
+  <button class="bigBtn" id="lobbyRestoreBtn" style="margin-top:8px; margin-bottom:10px; padding:10px 24px; font-size:14px; background:#2b3a4a; color:#fff; box-shadow:0 4px 0 #16222e;">🔑 اتصال به حساب قدیمی</button>
 </div>
 
 <div class="overlay hidden" id="eventOverlay" style="display:none; overflow-y:auto; justify-content:flex-start; padding-top:26px;">
@@ -1286,6 +1303,15 @@ function ensureEventState(){
   if(!SAVE.event.progress) SAVE.event.progress = {};
   if(!SAVE.event.claimed) SAVE.event.claimed = {};
   if(!SAVE.event.skipped) SAVE.event.skipped = {};
+  let migrated = false;
+  Object.keys(SAVE.event.skipped).forEach(id=>{
+    if(SAVE.event.skipped[id] === true){          // old format: was skipped but never paid out
+      const dm = EVENT_MISSION_DEFS.find(x=>x.id===id);
+      if(dm) grantEventReward(dm, info.theme);
+      SAVE.event.skipped[id] = 'paid'; migrated = true;
+    }
+  });
+  if(migrated) saveGame();
   return info;
 }
 function applyEventWeaponUnlocks(){
@@ -1321,17 +1347,20 @@ function eventRewardLabel(m, t){
   if(r.kind==='playerSkin') return '🧍 ' + t.playerSkin.label;
   return '🔫 ' + t.weapon.name;
 }
+function grantEventReward(m, t){
+  const r = m.reward;
+  if(r.kind==='diamonds') SAVE.diamonds += r.amount;
+  else if(r.kind==='weaponSkin'){ if(!SAVE.ownedSkins.weapon.includes(t.weaponSkin.id)) SAVE.ownedSkins.weapon.push(t.weaponSkin.id); }
+  else if(r.kind==='playerSkin'){ if(!SAVE.ownedSkins.player.includes(t.playerSkin.id)) SAVE.ownedSkins.player.push(t.playerSkin.id); }
+  else if(r.kind==='weapon'){ if(!SAVE.ownedWeapons.includes(t.weapon.key)) SAVE.ownedWeapons.push(t.weapon.key); applyEventWeaponUnlocks(); }
+}
 function claimEventMission(id){
   const info = ensureEventState();
   const m = EVENT_MISSION_DEFS.find(x=>x.id===id);
   if(!m || SAVE.event.claimed[id] || SAVE.event.skipped[id]) return;
   if(info.msLeft <= 0) return;
   if((SAVE.event.progress[m.type]||0) < m.target) return;
-  const t = info.theme, r = m.reward;
-  if(r.kind==='diamonds') SAVE.diamonds += r.amount;
-  else if(r.kind==='weaponSkin'){ if(!SAVE.ownedSkins.weapon.includes(t.weaponSkin.id)) SAVE.ownedSkins.weapon.push(t.weaponSkin.id); }
-  else if(r.kind==='playerSkin'){ if(!SAVE.ownedSkins.player.includes(t.playerSkin.id)) SAVE.ownedSkins.player.push(t.playerSkin.id); }
-  else if(r.kind==='weapon'){ if(!SAVE.ownedWeapons.includes(t.weapon.key)) SAVE.ownedWeapons.push(t.weapon.key); applyEventWeaponUnlocks(); }
+  grantEventReward(m, info.theme);
   SAVE.event.claimed[id] = true;
   saveGame();
   renderEventOverlay();
@@ -1389,7 +1418,7 @@ function claimMission(id){
   saveGame();
   renderLobby();
 }
-/* ---------- Skip missions with diamonds (no reward is given for a skipped mission) ---------- */
+/* ---------- Skip missions with diamonds: daily = no reward, event = reward is granted ---------- */
 function dailySkipCost(m){ return (m.reward||0)*2 + 10; }
 function skipMission(id){
   const m = SAVE.missions.find(x=>x.id===id);
@@ -1410,8 +1439,9 @@ function skipEventMission(id){
   if((SAVE.event.progress[m.type]||0) >= m.target) return;   // already complete -> just claim it
   if(SAVE.diamonds < m.skip) return;
   SAVE.diamonds -= m.skip;
+  grantEventReward(m, info.theme);   // skipping an EVENT mission with diamonds gives that mission's reward
   SAVE.event.claimed[id] = true;
-  SAVE.event.skipped[id] = true;
+  SAVE.event.skipped[id] = 'paid';
   saveGame();
   renderEventOverlay();
   renderLobby();
@@ -1426,6 +1456,25 @@ function tapToConfirm(btn, onConfirm){
   btn._armTimer = setTimeout(()=>{
     btn.dataset.armed = ''; btn.innerHTML = origHtml; btn.style.background = origBg; btn.style.boxShadow = origShadow;
   }, 3000);
+}
+const MISSION_RESET_COST = 60;   // diamonds needed to re-roll the daily missions
+function resetDailyMissions(){
+  ensureDailyMissions();
+  if(SAVE.diamonds < MISSION_RESET_COST) return;
+  const isKept = m => !m.claimed && m.progress >= m.target;      // finished but not yet collected -> keep, never lose a reward
+  const replaceable = SAVE.missions.filter(m=>!isKept(m)).length;
+  if(replaceable === 0) return;
+  const used = new Set(SAVE.missions.map(m=>m.id));
+  let pool = MISSION_POOL.filter(m=>!used.has(m.id));
+  if(pool.length < replaceable) pool = MISSION_POOL.filter(m=>!SAVE.missions.some(x=>x.id===m.id && isKept(x)));
+  SAVE.diamonds -= MISSION_RESET_COST;
+  SAVE.missions = SAVE.missions.map(m=>{
+    if(isKept(m) || !pool.length) return m;
+    const nm = pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+    return {id:nm.id, desc:nm.desc, target:nm.target, reward:nm.reward, type:nm.type, progress:0, claimed:false};
+  });
+  saveGame();
+  renderLobby();
 }
 function claimDaily(){
   if(SAVE.lastDaily === todayStr()) return;
@@ -3004,6 +3053,16 @@ function netConnectSocket(onOpen, onFail){
 function renderLobby(){
   ensureDailyMissions();
   document.getElementById('lobbyDiamonds').textContent = SAVE.diamonds;
+  const accEl = document.getElementById('lobbyAccountName');
+  if(accEl) accEl.textContent = getUsername();
+  const rmBtn = document.getElementById('resetMissionsBtn');
+  if(rmBtn){
+    const canReset = SAVE.diamonds >= MISSION_RESET_COST && SAVE.missions.some(m=>m.claimed || m.progress < m.target);
+    rmBtn.dataset.armed = ''; clearTimeout(rmBtn._armTimer);
+    rmBtn.innerHTML = '🔄 ماموریت جدید<br>💎 ' + MISSION_RESET_COST;
+    rmBtn.style.background = '#1f8fa8'; rmBtn.style.boxShadow = '0 3px 0 #0f5566';
+    rmBtn.disabled = !canReset; rmBtn.style.opacity = canReset ? '1' : '0.4';
+  }
   const dailyBtn = document.getElementById('dailyRewardBtn');
   if(SAVE.lastDaily === todayStr()){
     dailyBtn.textContent = '✅ جایزه امروز گرفته شد';
@@ -3101,20 +3160,19 @@ function renderEventOverlay(){
     const pct = Math.round(prog/m.target*100);
     const canSkip = SAVE.diamonds >= m.skip;
     let btnHtml;
-    if(skipped) btnHtml = '<button class="smallBtn" disabled style="flex-shrink:0;padding:8px 12px;opacity:0.4;">⏭</button>';
-    else if(claimed) btnHtml = '<button class="smallBtn" disabled style="flex-shrink:0;padding:8px 12px;opacity:0.4;">✅</button>';
+    if(claimed) btnHtml = '<button class="smallBtn" disabled style="flex-shrink:0;padding:8px 12px;opacity:0.4;">✅</button>';
     else if(done) btnHtml = '<button class="smallBtn" data-act="claim" data-id="'+m.id+'" style="flex-shrink:0;padding:8px 12px;background:#2ecc71;color:#04250f;">دریافت</button>';
     else btnHtml = '<button class="smallBtn" data-act="skip" data-id="'+m.id+'"'+(canSkip?'':' disabled')+' style="flex-shrink:0;padding:7px 10px;font-size:11px;line-height:1.35;white-space:nowrap;background:#7b2ff7;box-shadow:0 3px 0 #4a1a9c;'+(canSkip?'':'opacity:0.4;')+'">⏭ رد کردن<br>💎 '+m.skip+'</button>';
     html += '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.05);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:13px;">'+
       '<div style="text-align:right;flex:1;">'+
-        '<div style="color:'+(skipped?'#7d8899':'#fff')+';'+(skipped?'text-decoration:line-through;':'')+'">'+m.desc+'</div>'+
-        (skipped ? '' : '<div style="height:6px;background:rgba(255,255,255,0.12);border-radius:3px;margin:5px 0 3px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+t.accent+';"></div></div>')+
-        '<div style="color:#8ea0c8;font-size:11px;'+(skipped?'margin-top:3px;':'')+'">'+(skipped ? '⏭ با الماس رد شد — بدون جایزه' : prog+'/'+m.target+' — '+eventRewardLabel(m,t))+'</div>'+
+        '<div style="color:#fff;">'+m.desc+'</div>'+
+        '<div style="height:6px;background:rgba(255,255,255,0.12);border-radius:3px;margin:5px 0 3px;overflow:hidden;"><div style="height:100%;width:'+(skipped?100:pct)+'%;background:'+t.accent+';"></div></div>'+
+        '<div style="color:#8ea0c8;font-size:11px;">'+(skipped ? '⏭ با الماس رد شد — دریافت شد: '+eventRewardLabel(m,t) : prog+'/'+m.target+' — '+eventRewardLabel(m,t))+'</div>'+
       '</div>'+
       btnHtml+
     '</div>';
   });
-  html += '<p style="font-size:11px;color:#8ea0c8;margin-top:8px;max-width:none;text-align:right;">با الماس می‌تونی ماموریت رو رد کنی، ولی جایزه‌ی اون ماموریت رو نمی‌گیری. جایزه‌های دریافت‌نشده با تموم شدن هفته از بین می‌رن؛ ولی چیزهایی که گرفتی برای همیشه مال توئه. هفته‌ی بعد ایونت جدید شروع می‌شه.</p></div>'+
+  html += '<p style="font-size:11px;color:#8ea0c8;margin-top:8px;max-width:none;text-align:right;">با الماس می‌تونی هر ماموریت ایونت رو رد کنی و جایزه‌ش رو همون لحظه بگیری. جایزه‌های دریافت‌نشده با تموم شدن هفته از بین می‌رن؛ ولی چیزهایی که گرفتی برای همیشه مال توئه. هفته‌ی بعد ایونت جدید شروع می‌شه.</p></div>'+
     '<button class="bigBtn" id="eventCloseBtn" style="background:#333;color:#fff;box-shadow:0 6px 0 #111;margin-top:14px;">بازگشت به پایگاه</button>';
   box.innerHTML = html;
   document.getElementById('eventCloseBtn').addEventListener('click', showLobby);
@@ -3146,6 +3204,61 @@ function showLobby(){
   document.getElementById('lobbyOverlay').style.display = 'flex';
   renderLobby();
 }
+document.getElementById('resetMissionsBtn').addEventListener('click', function(){
+  const b = this; if(b.disabled) return;
+  tapToConfirm(b, resetDailyMissions);
+});
+/* ---------- Connect to an old account (by its username) ---------- */
+function restoreStatus(msg, color){
+  const el = document.getElementById('restoreStatus');
+  el.textContent = msg; el.style.color = color || '#aab';
+}
+function openRestoreModal(){
+  document.getElementById('restoreInput').value = '';
+  restoreStatus('');
+  document.getElementById('restoreOverlay').style.display = 'flex';
+  setTimeout(()=>document.getElementById('restoreInput').focus(), 50);
+}
+function closeRestoreModal(){ document.getElementById('restoreOverlay').style.display = 'none'; }
+let restoreBusy = false;
+async function restoreOldAccount(){
+  if(restoreBusy) return;
+  const name = document.getElementById('restoreInput').value.trim().slice(0,20);
+  if(!name){ restoreStatus('اسم حساب قدیمی رو بنویس.', '#ff9a9a'); return; }
+  if(name === getUsername()){ restoreStatus('این همون حساب فعلی خودته!', '#ffd23f'); return; }
+  restoreBusy = true;
+  const confirmBtn = document.getElementById('restoreConfirmBtn');
+  confirmBtn.disabled = true; confirmBtn.style.opacity = '0.6';
+  restoreStatus('⏳ در حال اتصال به حساب...', '#5ad8ff');
+  try{
+    const res = await fetch(API_BASE + '/api/load?username=' + encodeURIComponent(name));
+    const data = await res.json();
+    if(!data.found || !data.saveData){
+      restoreStatus('❌ حسابی با این اسم پیدا نشد. املای اسم رو چک کن.', '#ff9a9a');
+    } else {
+      clearTimeout(syncTimer); syncSaveToServer();     // push the current account to the server first so nothing is lost
+      const d = defaultSave();
+      SAVE = Object.assign(d, data.saveData, {
+        upgrades: Object.assign(defaultSave().upgrades, data.saveData.upgrades||{}),
+        skins: Object.assign(defaultSave().skins, data.saveData.skins||{}),
+        ownedSkins: Object.assign(defaultSave().ownedSkins, data.saveData.ownedSkins||{}),
+      });
+      localStorage.setItem(USERNAME_KEY, name);
+      try{ localStorage.setItem(SAVE_KEY, JSON.stringify(SAVE)); }catch(e){}
+      applyEventWeaponUnlocks();
+      closeRestoreModal();
+      renderLobby();
+    }
+  }catch(e){
+    restoreStatus('❌ اتصال به سرور ناموفق بود. اینترنتت رو چک کن و دوباره امتحان کن.', '#ff9a9a');
+  }
+  restoreBusy = false;
+  confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
+}
+document.getElementById('lobbyRestoreBtn').addEventListener('click', openRestoreModal);
+document.getElementById('restoreConfirmBtn').addEventListener('click', restoreOldAccount);
+document.getElementById('restoreCancelBtn').addEventListener('click', closeRestoreModal);
+document.getElementById('restoreInput').addEventListener('keydown', ev=>{ if(ev.key==='Enter') restoreOldAccount(); });
 document.getElementById('dailyRewardBtn').addEventListener('click', claimDaily);
 document.getElementById('weeklyRewardBtn').addEventListener('click', claimWeekly);
 document.getElementById('lobbyEnterBtn').addEventListener('click', ()=>{
