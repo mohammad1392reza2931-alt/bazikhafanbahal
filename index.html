@@ -452,6 +452,14 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+window.addEventListener('error', function(ev){
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;font-size:13px;padding:10px;direction:ltr;text-align:left;max-height:40vh;overflow:auto;';
+  box.textContent = 'ERROR: ' + ev.message + ' | ' + ev.filename + ':' + ev.lineno + ':' + ev.colno;
+  document.body.appendChild(box);
+});
+</script>
+<script>
 (function(){
 "use strict";
 
