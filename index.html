@@ -391,6 +391,8 @@
         <button class="smallBtn" id="changeUsernameBtn">✏️ تغییر اسم</button>
         <button class="smallBtn" id="logoutBtn" style="background:#7a2a2a; box-shadow:0 3px 0 #4a1616;">🚪 خروج از حساب</button>
       </div>
+      <button class="smallBtn" id="rubikaSupportBtn" style="margin-top:10px; width:100%; background:linear-gradient(135deg,#3fa9f5,#1c6fb5); box-shadow:0 3px 0 #124a78;">💬 پشتیبانی در روبیکا</button>
+      <div style="font-size:11px; color:#8ea0c8; margin-top:6px; text-align:center;">برای گزارش کردن چیت و فحش به پشتیبانی روبیکا پیام دهید.</div>
     </div>
     <button class="bigBtn" id="settingsCloseBtn">بستن</button>
   </div>
@@ -464,6 +466,8 @@
   <div style="margin-top:18px; font-size:12px; color:#8ea0c8;">👤 حساب فعلی: <span id="lobbyAccountName" style="color:#fff; font-weight:bold;">-</span></div>
   <button class="bigBtn" id="lobbyRestoreBtn" style="margin-top:8px; margin-bottom:10px; padding:10px 24px; font-size:14px; background:#2b3a4a; color:#fff; box-shadow:0 4px 0 #16222e;">🔑 اتصال به حساب قدیمی</button>
   <button class="bigBtn" id="lobbyLogoutBtn" style="margin-top:0; margin-bottom:10px; padding:10px 24px; font-size:14px; background:#7a2a2a; color:#fff; box-shadow:0 4px 0 #4a1616;">🚪 خروج از حساب</button>
+  <button class="bigBtn" id="lobbyRubikaSupportBtn" style="margin-top:0; margin-bottom:6px; padding:10px 24px; font-size:14px; background:linear-gradient(135deg,#3fa9f5,#1c6fb5); color:#fff; box-shadow:0 4px 0 #124a78;">💬 پشتیبانی در روبیکا</button>
+  <div style="font-size:11px; color:#8ea0c8; margin-top:2px; max-width:280px; text-align:center;">برای گزارش کردن چیت و فحش به پشتیبانی روبیکا پیام دهید.</div>
 </div>
 
 <div class="overlay hidden" id="eventOverlay" style="display:none; overflow-y:auto; justify-content:flex-start; padding-top:26px;">
@@ -2145,6 +2149,9 @@ document.getElementById('changeUsernameBtn').addEventListener('click', changeUse
 document.getElementById('changeUsernameBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); changeUsername(); }, {passive:false});
 document.getElementById('logoutBtn').addEventListener('click', logoutAccount);
 document.getElementById('logoutBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); logoutAccount(); }, {passive:false});
+function openRubikaSupport(){ window.open('https://rubika.ir/baziakharalzaman', '_blank'); }
+document.getElementById('rubikaSupportBtn').addEventListener('click', openRubikaSupport);
+document.getElementById('rubikaSupportBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); openRubikaSupport(); }, {passive:false});
 document.getElementById('settingsCloseBtn').addEventListener('click', closeSettings);
 document.getElementById('settingsCloseBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); closeSettings(); }, {passive:false});
 
@@ -3472,10 +3479,14 @@ function netStartSyncLoop(){
 }
 function netConnectSocket(onOpen, onFail){
   let opened = false;
-  try{ NET.ws = new WebSocket(WS_SERVER_URL); }catch(e){ onFail&&onFail(); return; }
-  NET.ws.addEventListener('open', ()=>{ opened = true; onOpen&&onOpen(); });
-  NET.ws.addEventListener('error', ()=>{ if(!opened) onFail&&onFail(); });
-  NET.ws.addEventListener('message', ev=>{
+  // ask the server first so a banned account gets a clear reason instead of a generic connection failure
+  fetch(API_BASE + '/api/check-ban?u=' + encodeURIComponent(getUsername())).then(r=>r.json()).catch(()=>null).then(ban=>{
+    if(ban && ban.banned){ onFail && onFail('banned'); return; }
+    const url = WS_SERVER_URL + '?u=' + encodeURIComponent(getUsername());
+    try{ NET.ws = new WebSocket(url); }catch(e){ onFail&&onFail(); return; }
+    NET.ws.addEventListener('open', ()=>{ opened = true; onOpen&&onOpen(); });
+    NET.ws.addEventListener('error', ()=>{ if(!opened) onFail&&onFail(); });
+    NET.ws.addEventListener('message', ev=>{
     let msg; try{ msg = JSON.parse(ev.data); }catch(e){ return; }
     if(msg.type === 'hosted'){
       document.getElementById('netRoomCode').textContent = msg.code;
@@ -3506,9 +3517,10 @@ function netConnectSocket(onOpen, onFail){
     } else if(msg.type === 'data'){
       netOnData(msg.payload);
     }
-  });
-  NET.ws.addEventListener('close', ()=>{
-    if(!NET.connected) netSetStatus('netStatus', '❌ اتصال به سرور ناموفق بود.');
+    });
+    NET.ws.addEventListener('close', ()=>{
+      if(!NET.connected) netSetStatus('netStatus', '❌ اتصال به سرور ناموفق بود.');
+    });
   });
 }
 /* ================= LOBBY UI ================= */
@@ -3747,6 +3759,8 @@ async function restoreOldAccount(){
 document.getElementById('lobbyRestoreBtn').addEventListener('click', openRestoreModal);
 document.getElementById('lobbyLogoutBtn').addEventListener('click', logoutAccount);
 document.getElementById('lobbyLogoutBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); logoutAccount(); }, {passive:false});
+document.getElementById('lobbyRubikaSupportBtn').addEventListener('click', openRubikaSupport);
+document.getElementById('lobbyRubikaSupportBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); openRubikaSupport(); }, {passive:false});
 document.getElementById('restoreConfirmBtn').addEventListener('click', restoreOldAccount);
 document.getElementById('restoreCancelBtn').addEventListener('click', closeRestoreModal);
 document.getElementById('restoreInput').addEventListener('keydown', ev=>{ if(ev.key==='Enter') restoreOldAccount(); });
@@ -3850,10 +3864,10 @@ document.getElementById('pvpShansiBtn').addEventListener('click', ()=>{
   document.getElementById('pvpQueueOverlay').style.display = 'flex';
   netConnectSocket(
     ()=>{ NET.ws.send(JSON.stringify({type:'pvpQueue'})); },
-    ()=>{
+    (reason)=>{
       document.getElementById('pvpQueueOverlay').style.display = 'none';
       document.getElementById('startOverlay').style.display = 'flex';
-      showKillFeedMsg('❌ اتصال به سرور ناموفق بود.');
+      showKillFeedMsg(reason==='banned' ? '🚫 حساب شما از بازی آنلاین بن شده است.' : '❌ اتصال به سرور ناموفق بود.');
     }
   );
 });
@@ -3876,7 +3890,7 @@ document.getElementById('netHostBtn').addEventListener('click', ()=>{
   netSetStatus('netStatus','در حال ساخت اتاق...');
   netConnectSocket(
     ()=>{ NET.ws.send(JSON.stringify({type:'host', kind:NET_KIND})); },
-    ()=>{ netSetStatus('netStatus','❌ اتصال به سرور ناموفق بود.'); }
+    (reason)=>{ netSetStatus('netStatus', reason==='banned' ? '🚫 حساب شما از بازی آنلاین بن شده است.' : '❌ اتصال به سرور ناموفق بود.'); }
   );
 });
 document.getElementById('netJoinBtn').addEventListener('click', ()=>{
@@ -3886,7 +3900,7 @@ document.getElementById('netJoinBtn').addEventListener('click', ()=>{
   netSetStatus('netStatus','در حال اتصال...');
   netConnectSocket(
     ()=>{ NET.ws.send(JSON.stringify({type:'join', code, kind:NET_KIND})); },
-    ()=>{ netSetStatus('netStatus','❌ اتصال به سرور ناموفق بود.'); }
+    (reason)=>{ netSetStatus('netStatus', reason==='banned' ? '🚫 حساب شما از بازی آنلاین بن شده است.' : '❌ اتصال به سرور ناموفق بود.'); }
   );
 });
 
