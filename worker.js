@@ -225,17 +225,20 @@ export default {
   },
 };
 
-// ---------- Durable Object: 2-player co-op relay ----------
+// ---------- Durable Object: 2-player co-op / PvP relay ----------
 // Client protocol (see the game):
-//   -> {type:'host'}                 <- {type:'hosted', code}
-//   -> {type:'join', code}           <- {type:'joined'} (to joiner) + {type:'peer-connected'} (to host)  |  {type:'join-error'}
+//   -> {type:'host', kind}           <- {type:'hosted', code}            (kind: 'coop' | 'pvp', defaults to 'coop')
+//   -> {type:'join', code, kind}     <- {type:'joined'} (to joiner) + {type:'peer-connected'} (to host)  |  {type:'join-error'}
 //   -> {type:'data', payload}        <- {type:'data', payload}   (forwarded to the other player)
+//   -> {type:'pvpQueue'}             <- {type:'pvp-matched', role:'host'|'client'}  (sent to BOTH once 2 players are queued)
+//   -> {type:'pvpQueueCancel'}       (leaves the random-matchmaking queue)
 //   peer leaves                      <- {type:'peer-disconnected'}
 export class Relay {
   constructor(state, env) {
     this.state = state;
     this.env = env;
-    this.rooms = new Map(); // code -> { host: ws, guest: ws|null }
+    this.rooms = new Map(); // code -> { host: ws, guest: ws|null, kind: 'coop'|'pvp' }
+    this.pvpQueue = [];     // ws[] waiting for random PvP matchmaking ("پی‌وی‌پی شانسی")
   }
 
   async fetch(request) {
@@ -246,8 +249,8 @@ export class Relay {
     const [client, server] = Object.values(pair);
     server.accept();
     server.addEventListener("message", (ev) => this.onMessage(server, ev.data));
-    server.addEventListener("close", () => this.leaveRoom(server));
-    server.addEventListener("error", () => this.leaveRoom(server));
+    server.addEventListener("close", () => { this.leaveQueue(server); this.leaveRoom(server); });
+    server.addEventListener("error", () => { this.leaveQueue(server); this.leaveRoom(server); });
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -271,9 +274,11 @@ export class Relay {
     if (!msg || typeof msg !== "object") return;
 
     if (msg.type === "host") {
+      this.leaveQueue(ws);
       this.leaveRoom(ws);
+      const kind = msg.kind === "pvp" ? "pvp" : "coop";
       const code = this.genCode();
-      this.rooms.set(code, { host: ws, guest: null });
+      this.rooms.set(code, { host: ws, guest: null, kind });
       ws._code = code;
       ws._role = "host";
       this.send(ws, { type: "hosted", code });
@@ -282,8 +287,10 @@ export class Relay {
 
     if (msg.type === "join") {
       const code = String(msg.code || "").toUpperCase().trim();
+      const kind = msg.kind === "pvp" ? "pvp" : "coop";
       const room = this.rooms.get(code);
-      if (!room || !room.host || room.guest) { this.send(ws, { type: "join-error" }); return; }
+      if (!room || !room.host || room.guest || room.kind !== kind) { this.send(ws, { type: "join-error" }); return; }
+      this.leaveQueue(ws);
       this.leaveRoom(ws);
       room.guest = ws;
       ws._code = code;
@@ -293,12 +300,40 @@ export class Relay {
       return;
     }
 
+    // ---- "پی‌وی‌پی شانسی" (random PvP): first player to queue up after you gets matched with you ----
+    if (msg.type === "pvpQueue") {
+      this.leaveRoom(ws);
+      this.leaveQueue(ws); // avoid double-queueing the same socket
+      this.pvpQueue.push(ws);
+      if (this.pvpQueue.length >= 2) {
+        const hostWs = this.pvpQueue.shift();
+        const guestWs = this.pvpQueue.shift();
+        const code = this.genCode();
+        this.rooms.set(code, { host: hostWs, guest: guestWs, kind: "pvp" });
+        hostWs._code = code; hostWs._role = "host";
+        guestWs._code = code; guestWs._role = "guest";
+        this.send(hostWs, { type: "pvp-matched", role: "host" });
+        this.send(guestWs, { type: "pvp-matched", role: "client" });
+      }
+      return;
+    }
+
+    if (msg.type === "pvpQueueCancel") {
+      this.leaveQueue(ws);
+      return;
+    }
+
     if (msg.type === "data") {
       const room = this.rooms.get(ws._code);
       if (!room) return;
       const other = ws._role === "host" ? room.guest : room.host;
       if (other) this.send(other, { type: "data", payload: msg.payload });
     }
+  }
+
+  leaveQueue(ws) {
+    const i = this.pvpQueue.indexOf(ws);
+    if (i >= 0) this.pvpQueue.splice(i, 1);
   }
 
   leaveRoom(ws) {
