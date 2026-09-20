@@ -1,0 +1,20 @@
+{
+  "name": "bazikhafanbahalkhoob",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-18",
+  "durable_objects": {
+    "bindings": [
+      { "name": "RELAY", "class_name": "Relay" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Relay"] }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "strikezone-db",
+      "database_id": "76b6ecdc-6ce1-4168-b73d-27a2f10da3c7"
+    }
+  ]
+}
