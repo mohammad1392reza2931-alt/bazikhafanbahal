@@ -58,6 +58,31 @@
     background:rgba(30,34,40,0.7); border:2px solid rgba(255,255,255,0.35); color:#dfe6ea;
     font-size:20px; display:flex; align-items:center; justify-content:center; pointer-events:auto; z-index:210;
   }
+  #chatBtn {
+    position:absolute; bottom:150px; right:12px; width:42px; height:42px; border-radius:50%;
+    background:rgba(30,34,40,0.7); border:2px solid rgba(255,255,255,0.35); color:#dfe6ea;
+    font-size:19px; display:none; align-items:center; justify-content:center; pointer-events:auto; z-index:210;
+  }
+  #chatFeed {
+    position:absolute; top:56px; right:10px; width:220px; max-width:60%; display:flex; flex-direction:column;
+    align-items:flex-end; gap:4px; pointer-events:none; z-index:60; text-align:right;
+  }
+  #chatFeed .chatMsg {
+    background:rgba(15,22,32,0.85); color:#eaf6ff; font-size:12px; line-height:1.4; padding:5px 10px; border-radius:10px;
+    max-width:100%; word-break:break-word; box-shadow:0 2px 6px rgba(0,0,0,0.4); transition:opacity 0.4s ease;
+  }
+  #chatFeed .chatMsg.me { color:#9fe870; }
+  #chatInputBar {
+    position:absolute; left:50%; bottom:150px; transform:translateX(-50%); display:none;
+    gap:6px; z-index:220; pointer-events:auto; width:90%; max-width:360px;
+  }
+  #chatInputBar input {
+    flex:1; padding:10px 12px; border-radius:20px; border:none; font-size:14px;
+    background:rgba(255,255,255,0.92); color:#111; direction:rtl; outline:none;
+  }
+  #chatInputBar button {
+    padding:0 16px; border-radius:20px; border:none; background:#5ad8ff; color:#06202b; font-weight:bold; font-size:14px;
+  }
   #settingsOverlay {
     display:none; z-index:205;
     overflow-y:auto; justify-content:flex-start; padding-top:16px; padding-bottom:16px;
@@ -250,11 +275,13 @@
     box-shadow:0 6px 0 #1c8a2a, 0 10px 20px rgba(0,0,0,0.5);
   }
   #coopWaitOverlay { display:none; z-index:99; }
-  #coopWaitOverlay .spinner {
+  #coopWaitOverlay .spinner, #pvpQueueOverlay .spinner {
     width:38px; height:38px; border-radius:50%; border:4px solid rgba(255,255,255,0.2); border-top-color:#5ad8ff;
     animation:coopspin 0.8s linear infinite; margin-bottom:16px;
   }
   @keyframes coopspin { to { transform:rotate(360deg); } }
+  #pvpQueueOverlay { display:none; z-index:99; }
+  #pvpStatsRow { font-weight:bold; color:#ff9ad8; }
 
   /* Sniper scope overlay */
   #scopeOverlay {
@@ -306,9 +333,10 @@
       <div id="healthBarBg"><div id="healthBarFg"></div></div>
     </div>
     <div id="statsRight">
-      <div>SCORE <span id="scoreVal">0</span></div>
-      <div>WAVE <span id="waveVal">1</span></div>
+      <div id="scoreRow">SCORE <span id="scoreVal">0</span></div>
+      <div id="waveRow">WAVE <span id="waveVal">1</span></div>
       <div id="coinRow"><span class="coinIcon"></span><span id="coinVal">0</span></div>
+      <div id="pvpStatsRow" style="display:none;">راند <span id="pvpRoundVal">1</span>/۳ — من <span id="pvpMyKillsVal">0</span> : حریف <span id="pvpOppKillsVal">0</span></div>
     </div>
   </div>
 
@@ -322,6 +350,12 @@
   </div>
   <div id="reviveBtn">🤝 ریوایو دوستت</div>
   <div id="settingsBtn">⚙️</div>
+  <div id="chatBtn">💬</div>
+  <div id="chatFeed"></div>
+  <div id="chatInputBar">
+    <input type="text" id="chatInput" maxlength="140" placeholder="پیامت رو بنویس...">
+    <button id="chatSendBtn">ارسال</button>
+  </div>
   <div id="editModeHint">🖐 دکمه‌ها رو بکش و هرجا خواستی رها کن</div>
   <div id="doneEditBtn">✅ پایان ویرایش</div>
   <div class="overlay" id="settingsOverlay">
@@ -450,7 +484,16 @@
   <h2>عملیات نجات پایگاه</h2>
   <button class="bigBtn" id="startBtn" style="margin-top:10px;">شروع نبرد</button>
   <button class="bigBtn" id="coopBtn" style="background:linear-gradient(135deg,#1c5c8a,#123a5c); margin-top:14px;">🌐 بازی دو نفره (Co-op)</button>
+  <button class="bigBtn" id="pvpShansiBtn" style="background:linear-gradient(135deg,#8a1c5c,#5c1240); margin-top:14px;">🎲 پی‌وی‌پی شانسی</button>
+  <button class="bigBtn" id="pvpCodeBtn" style="background:linear-gradient(135deg,#5c8a1c,#3a5c12); margin-top:14px;">⚔️ پی‌وی‌پی با کد</button>
   <button class="bigBtn" id="backToLobbyBtn" style="background:#333; margin-top:14px;">بازگشت به پایگاه</button>
+</div>
+
+<div class="overlay" id="pvpQueueOverlay">
+  <div class="spinner"></div>
+  <h2>در حال جستجوی حریف...</h2>
+  <p>به محض اینکه یه بازیکن دیگه وارد این حالت بشه، مسابقه‌ی «پی‌وی‌پی شانسی» شروع می‌شه.</p>
+  <button class="bigBtn" id="pvpQueueCancelBtn" style="background:#333; margin-top:14px;">لغو</button>
 </div>
 
 <div class="overlay hidden" id="netOverlay" style="display:none;">
@@ -488,8 +531,10 @@
 <div class="overlay hidden" id="gameOverOverlay" style="display:none;">
   <h1 id="goTitle">GAME OVER</h1>
   <h2 id="goSub">تو کشته شدی</h2>
-  <p>امتیاز نهایی: <b id="finalScore">0</b></p>
-  <p>موج رسیده: <b id="finalWave">1</b></p>
+  <div id="finalScoreWaveWrap">
+    <p>امتیاز نهایی: <b id="finalScore">0</b></p>
+    <p>موج رسیده: <b id="finalWave">1</b></p>
+  </div>
   <div id="leaderboardBox" style="margin:10px 0; font-size:14px; color:#ffd23f;">
     <div>🏆 برترین‌ها</div>
     <ol id="leaderboardList" style="text-align:right; padding-right:20px; margin:6px 0;"></ol>
@@ -1144,8 +1189,9 @@ const REVIVE_DECISION_TIME = 5;   // seconds the player has to decide; after tha
 let reviveOpen = false, revivesUsed = 0, reviveInvulnTimer = 0;
 let reviveTimerId = null, reviveDeadline = 0;
 let lastShotTime = 0;
-// ---- Co-op networking state ----
-let gameMode = 'solo'; // 'solo' | 'coopHost' | 'coopClient'
+// ---- Co-op / PvP networking state ----
+let gameMode = 'solo'; // 'solo' | 'coopHost' | 'coopClient' | 'pvpHost' | 'pvpClient'
+function isPvp(){ return gameMode==='pvpHost' || gameMode==='pvpClient'; }
 
 /* ================= PERSISTENT SAVE / DIAMONDS / MISSIONS / SHOP ================= */
 const SAVE_KEY = 'strikeZoneSave_v1';
@@ -1647,6 +1693,16 @@ let enemyIdCounter = 1;
 const clientCountedKills = new Set(); // guest: enemy ids already counted for missions (avoids double counting re-synced enemies)
 let remotePlayer = null; // {x,y,z,yaw,hp,weaponIndex,alive}
 let remoteAvatar = null; // THREE.Group
+
+/* ================= PvP (direct duel) state ================= */
+let pvpMatchActive = false;
+let pvpRoundLocked = false;
+let pvpInvulnUntil = 0;
+let pvpRound = 1;
+let pvpHostKillsRound = 0, pvpClientKillsRound = 0;   // kills scored so far THIS round
+let pvpHostRoundsWon = 0, pvpClientRoundsWon = 0;      // rounds won so far this match
+const PVP_SPAWN_HOST = {x:0, z:10};
+const PVP_SPAWN_CLIENT = {x:-3, z:10};
 // ammo crates falling from the sky
 const ammoCrates = [];
 let crateSpawnTimer = 6;
@@ -2094,7 +2150,7 @@ document.getElementById('settingsCloseBtn').addEventListener('touchstart', funct
 
 // ---------- Custom control layout (drag to reposition) ----------
 let editMode = false;
-const DRAGGABLE_IDS = ['fireBtn','reloadBtn','jumpBtn','aimBtn','grenadeBtn','smokeBtn','weaponBar'];
+const DRAGGABLE_IDS = ['fireBtn','reloadBtn','jumpBtn','aimBtn','grenadeBtn','smokeBtn','weaponBar','chatBtn'];
 const editModeHint = document.getElementById('editModeHint');
 const doneEditBtn = document.getElementById('doneEditBtn');
 
@@ -2668,7 +2724,7 @@ function updateTracers(dt){
 function shoot(){
   const weapon = currentWeapon();
   const ammoS = currentAmmoState();
-  if(!gameStarted || gameOver || shopOpen || settingsOpen || reviveOpen) return;
+  if(!gameStarted || gameOver || shopOpen || settingsOpen || reviveOpen || pvpRoundLocked) return;
   if(!weapon.melee && ammoS.ammo<=0 && !ammoS.reloading){ doReload(); return; }
   if(ammoS.reloading || ammoS.ammo<=0) return;
   const now = performance.now();
@@ -2699,9 +2755,12 @@ function shoot(){
 
   const targets = [];
   enemies.forEach(e=>{ targets.push(e.mesh.userData.bodyMesh, e.mesh.userData.headMesh); });
+  if(isPvp() && remoteAvatar && remoteAvatar.visible && remotePlayer && remotePlayer.alive !== false){
+    targets.push(remoteAvatar.userData.bodyMesh, remoteAvatar.userData.headMesh);
+  }
   targets.forEach(m=>{ m.updateMatrixWorld(); });
 
-  let anyHit = false, anyHead = false, killedAny = false;
+  let anyHit = false, anyHead = false, killedAny = false, pvpHitThisShot = false;
   const hitOnce = new Set();
 
   const spreadMul = aiming ? 0.35 : 1;
@@ -2754,6 +2813,12 @@ function shoot(){
           killEnemy(hitEnemy, true);
           killedAny = true;
         }
+      } else if(isPvp() && remoteAvatar && (hits[0].object===remoteAvatar.userData.bodyMesh || hits[0].object===remoteAvatar.userData.headMesh)){
+        const isHead = hits[0].object===remoteAvatar.userData.headMesh;
+        const dmg = (isHead ? weapon.dmgHead : weapon.dmgBody) * (window.DMG_MULT||1);
+        netSend({t:'pvpHit', dmg});
+        anyHit = true; pvpHitThisShot = true;
+        if(isHead) anyHead = true;
       }
     }
   }
@@ -2761,7 +2826,8 @@ function shoot(){
   if(anyHit){
     playHit();
     flashCrosshair();
-    showKillFeedMsg(killedAny ? 'حذف شد! +10' : (weapon.splash ? '💥 اصابت راکت!' : (anyHead ? 'هدشات!' : 'اصابت')));
+    if(pvpHitThisShot) showKillFeedMsg(anyHead ? '🎯 هدشات به حریف!' : '🔫 به حریف زدی!');
+    else showKillFeedMsg(killedAny ? 'حذف شد! +10' : (weapon.splash ? '💥 اصابت راکت!' : (anyHead ? 'هدشات!' : 'اصابت')));
   }
 
   if(!weapon.melee && ammoS.ammo<=0){ doReload(); }
@@ -2780,6 +2846,43 @@ function showKillFeedMsg(msg){
   clearTimeout(killFeedTimer);
   killFeedTimer = setTimeout(()=>{ el.style.opacity='0'; }, 900);
 }
+
+// ---------- Text chat (co-op / PvP) ----------
+function addChatMessage(text, mine){
+  const feed = document.getElementById('chatFeed');
+  const el = document.createElement('div');
+  el.className = 'chatMsg' + (mine ? ' me' : '');
+  el.textContent = text;
+  feed.appendChild(el);
+  while(feed.children.length > 6) feed.removeChild(feed.firstChild); // keep the feed from piling up
+  setTimeout(()=>{
+    el.style.opacity = '0';
+    setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 450);
+  }, 4500);
+}
+function updateChatButtonVisibility(){
+  document.getElementById('chatBtn').style.display = (gameStarted && NET.connected) ? 'flex' : 'none';
+  if(!NET.connected) document.getElementById('chatInputBar').style.display = 'none';
+}
+function sendChatMessage(){
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text) return;
+  if(NET.connected) netSend({t:'chat', msg:text});
+  addChatMessage(text, true);
+  input.value = '';
+  document.getElementById('chatInputBar').style.display = 'none';
+}
+document.getElementById('chatBtn').addEventListener('click', ()=>{
+  if(editMode || !NET.connected) return;
+  const bar = document.getElementById('chatInputBar');
+  const opening = bar.style.display !== 'flex';
+  bar.style.display = opening ? 'flex' : 'none';
+  if(opening) document.getElementById('chatInput').focus();
+});
+document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+document.getElementById('chatSendBtn').addEventListener('touchstart', function(ev){ ev.preventDefault(); sendChatMessage(); }, {passive:false});
+document.getElementById('chatInput').addEventListener('keydown', function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); sendChatMessage(); } });
 
 function updateAmmoUI(){
   const weapon = currentWeapon();
@@ -2844,6 +2947,7 @@ function switchWeapon(i){
 
 // ---------- Damage to player ----------
 function damagePlayer(amount){
+  if(isPvp()){ pvpDamagePlayer(amount); return; }
   if(!player.alive || player.downed || reviveOpen) return;
   if(reviveInvulnTimer > 0) return;   // brief protection right after a paid revive
   player.hp -= amount;
@@ -3005,6 +3109,10 @@ function netDisconnect(){
   if(remoteAvatar){ scene.remove(remoteAvatar); remoteAvatar = null; }
   remotePlayer = null;
   hostReady = false; clientReady = false; localReady = false; pendingBuyId = null;
+  pvpMatchActive = false; pvpRoundLocked = false;
+  document.getElementById('pvpQueueOverlay').style.display = 'none';
+  pvpSetHudVisible(false);
+  updateChatButtonVisibility();
   clearInterval(NET.syncTimer);
 }
 function createRemoteAvatarMesh(skinId){
@@ -3017,6 +3125,9 @@ function createRemoteAvatarMesh(skinId){
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.28,10,10), headMat);
   head.position.y = 1.75; g.add(head);
   g.userData.skinId = skinId;
+  // hittable references for PvP shooting (same convention as enemy meshes: userData.bodyMesh / headMesh)
+  g.userData.bodyMesh = body;
+  g.userData.headMesh = head;
   return g;
 }
 
@@ -3100,6 +3211,8 @@ function netOnData(data){
     remoteAvatar.rotation.y = data.yaw;
     // visually flatten the teammate's avatar while they're downed, so it's obvious who needs reviving
     remoteAvatar.scale.set(1, data.downed ? 0.35 : 1, 1);
+    // PvP: hide the opponent's avatar for the instant between their death and respawn
+    if(isPvp()) remoteAvatar.visible = data.alive !== false;
   } else if(data.t === 's' && gameMode==='coopClient'){
     applyEnemySnapshot(data);
   } else if(data.t === 'hit' && gameMode==='coopHost'){
@@ -3107,6 +3220,18 @@ function netOnData(data){
     if(e){ e.hp -= data.dmg; if(e.hp<=0) killEnemy(e, true); }
   } else if(data.t === 'hitp'){
     damagePlayer(data.dmg);
+  } else if(data.t === 'pvpHit'){
+    damagePlayer(data.dmg);
+  } else if(data.t === 'pvpDied' && gameMode==='pvpHost'){
+    hostResolveDeath('client');
+  } else if(data.t === 'pvpState'){
+    pvpApplyState(data);
+  } else if(data.t === 'pvpRoundStart' && gameMode==='pvpClient'){
+    pvpApplyRoundStart(data.round);
+  } else if(data.t === 'pvpMatchEnd'){
+    pvpApplyMatchEnd(data);
+  } else if(data.t === 'chat'){
+    addChatMessage(data.msg, false);
   } else if(data.t === 'dead'){
     if(gameStarted && !gameOver) endGame(false, 'همراهت شکست خورد — عملیات لغو شد');
   } else if(data.t === 'downed'){
@@ -3159,6 +3284,146 @@ function netOnData(data){
     updateCoinUI();
     if(shopOpen) renderShop();
   }
+}
+/* ================= PvP (direct duel) logic ================= */
+function pvpSetHudVisible(on){
+  document.getElementById('scoreRow').style.display = on ? 'none' : '';
+  document.getElementById('waveRow').style.display = on ? 'none' : '';
+  document.getElementById('coinRow').style.display = on ? 'none' : '';
+  document.getElementById('pvpStatsRow').style.display = on ? 'block' : 'none';
+}
+function updatePvpHud(){
+  document.getElementById('pvpRoundVal').textContent = pvpRound;
+  const myKills = gameMode==='pvpHost' ? pvpHostKillsRound : pvpClientKillsRound;
+  const oppKills = gameMode==='pvpHost' ? pvpClientKillsRound : pvpHostKillsRound;
+  document.getElementById('pvpMyKillsVal').textContent = myKills;
+  document.getElementById('pvpOppKillsVal').textContent = oppKills;
+}
+function showPvpBanner(title, sub, duration){
+  const banner = document.getElementById('waveBanner');
+  document.getElementById('waveNum').textContent = title;
+  document.getElementById('waveSub').textContent = sub;
+  banner.style.opacity = '1';
+  clearTimeout(showPvpBanner._t);
+  showPvpBanner._t = setTimeout(()=>{ banner.style.opacity='0'; }, duration||2000);
+}
+function pvpRespawnSelf(){
+  const sp = gameMode==='pvpHost' ? PVP_SPAWN_HOST : PVP_SPAWN_CLIENT;
+  camHolder.position.set(sp.x, player.eyeHeight, sp.z);
+  yaw = Math.PI; pitch = 0;
+  player.maxHp = 100; player.hp = 100; player.alive = true; player.downed = false;
+  updateHealthUI();
+  pvpInvulnUntil = performance.now() + 1500; // brief spawn protection
+}
+function pvpApplyRoundStart(round){
+  pvpRound = round;
+  pvpHostKillsRound = 0; pvpClientKillsRound = 0;
+  updatePvpHud();
+  pvpRespawnSelf();
+  pvpRoundLocked = true;
+  showPvpBanner('راند ' + round + ' از ۳', 'آماده شو...', 1800);
+  clearTimeout(pvpApplyRoundStart._t);
+  pvpApplyRoundStart._t = setTimeout(()=>{ pvpRoundLocked = false; }, 1800);
+}
+function pvpApplyState(data){
+  pvpRound = data.round;
+  pvpHostKillsRound = data.hostKills;
+  pvpClientKillsRound = data.clientKills;
+  pvpHostRoundsWon = data.hostRoundsWon;
+  pvpClientRoundsWon = data.clientRoundsWon;
+  updatePvpHud();
+  const myRole = gameMode==='pvpHost' ? 'host' : 'client';
+  if(data.diedSide === myRole){
+    pvpRespawnSelf();
+    showKillFeedMsg('💀 حریف زدت!');
+  } else if(data.diedSide){
+    showKillFeedMsg('🔫 حریف رو زدی!');
+  }
+  if(data.roundOver){
+    const iWonRound = data.roundWinner === myRole;
+    pvpRoundLocked = true;
+    showPvpBanner(iWonRound ? '🏆 راند رو بردی!' : '❌ راند رو باختی', 'راند بعدی به‌زودی...', 2000);
+  }
+}
+function pvpApplyMatchEnd(data){
+  pvpMatchActive = false;
+  const myRole = gameMode==='pvpHost' ? 'host' : 'client';
+  const myRW = myRole==='host' ? data.hostRoundsWon : data.clientRoundsWon;
+  const oppRW = myRole==='host' ? data.clientRoundsWon : data.hostRoundsWon;
+  const iWon = data.winner === myRole;
+  let sub, title;
+  if(data.winner === null){
+    title = 'نتیجه نامشخص';
+    sub = 'راندها ' + myRW + '-' + oppRW + ' تموم شد. برای گرفتن جایزه باید هر ۳ راند رو می‌بردی، پس این‌بار الماسی داده نشد.';
+  } else if(iWon){
+    title = '🏆 برنده شدی!';
+    sub = 'هر ۳ راند رو بردی! 💎 ۲۰ الماس به حسابت اضافه شد.';
+    SAVE.diamonds += 20;
+    saveGame();
+  } else {
+    title = '💀 باختی';
+    sub = 'حریف تونست هر ۳ راند رو ببره و برنده شد.';
+  }
+  endGame(iWon, sub, title);
+}
+function pvpBeginMatch(){
+  pvpMatchActive = true;
+  pvpRound = 1; pvpHostKillsRound = 0; pvpClientKillsRound = 0; pvpHostRoundsWon = 0; pvpClientRoundsWon = 0;
+  pvpSetHudVisible(true);
+  updatePvpHud();
+  if(gameMode==='pvpHost'){
+    pvpApplyRoundStart(1);
+    netSend({t:'pvpRoundStart', round:1});
+  }
+  // pvpClient waits for the host's 'pvpRoundStart' broadcast (handled in netOnData) so both start in sync
+}
+// host-authoritative: called on the HOST whenever either duelist dies (own death, or client's 'pvpDied' message)
+function hostResolveDeath(diedSide){
+  if(!pvpMatchActive) return;
+  if(diedSide==='host') pvpClientKillsRound++; else pvpHostKillsRound++;
+  let roundWinner = null;
+  if(pvpHostKillsRound>=3) roundWinner='host';
+  else if(pvpClientKillsRound>=3) roundWinner='client';
+  if(roundWinner==='host') pvpHostRoundsWon++;
+  else if(roundWinner==='client') pvpClientRoundsWon++;
+  const payload = {t:'pvpState', round:pvpRound, hostKills:pvpHostKillsRound, clientKills:pvpClientKillsRound,
+    hostRoundsWon:pvpHostRoundsWon, clientRoundsWon:pvpClientRoundsWon, diedSide, roundOver:!!roundWinner, roundWinner};
+  netSend(payload);
+  pvpApplyState(payload);
+  if(roundWinner){
+    pvpMatchActive = false; // pause combat while the round-result banner is showing
+    setTimeout(()=>{
+      if(pvpRound>=3){
+        const matchWinner = pvpHostRoundsWon===3 ? 'host' : (pvpClientRoundsWon===3 ? 'client' : null);
+        const endPayload = {t:'pvpMatchEnd', winner:matchWinner, hostRoundsWon:pvpHostRoundsWon, clientRoundsWon:pvpClientRoundsWon};
+        netSend(endPayload);
+        pvpApplyMatchEnd(endPayload);
+      } else {
+        pvpRound++;
+        pvpMatchActive = true;
+        netSend({t:'pvpRoundStart', round:pvpRound});
+        pvpApplyRoundStart(pvpRound);
+      }
+    }, 2200);
+  }
+}
+function pvpDamagePlayer(amount){
+  if(!player.alive) return;
+  if(performance.now() < pvpInvulnUntil) return;
+  player.hp -= amount;
+  playHurt();
+  const df = document.getElementById('damageFlash');
+  df.style.opacity = '1';
+  setTimeout(()=>{ df.style.opacity='0'; }, 150);
+  if(player.hp <= 0){
+    player.hp = 0;
+    updateHealthUI();
+    player.alive = false;
+    if(gameMode==='pvpClient') netSend({t:'pvpDied'});
+    else hostResolveDeath('host');
+    return;
+  }
+  updateHealthUI();
 }
 function applyEnemySnapshot(data){
   // safety net: if the host already moved on to a newer wave but our 'nextWave' message was missed, un-pause here
@@ -3223,10 +3488,21 @@ function netConnectSocket(onOpen, onFail){
       document.getElementById('netOverlay').style.display = 'none';
       netStartSyncLoop();
       startGame();
+      if(isPvp()) pvpBeginMatch();
+      updateChatButtonVisibility();
+    } else if(msg.type === 'pvp-matched'){
+      NET.connected = true;
+      gameMode = msg.role==='host' ? 'pvpHost' : 'pvpClient';
+      document.getElementById('pvpQueueOverlay').style.display = 'none';
+      netStartSyncLoop();
+      startGame();
+      pvpBeginMatch();
+      updateChatButtonVisibility();
     } else if(msg.type === 'join-error'){
       netSetStatus('netStatus', 'کد اشتباهه یا اتاق پره/بسته‌ست.');
     } else if(msg.type === 'peer-disconnected'){
-      if(gameStarted && !gameOver) endGame(false, 'اتصال دوستت قطع شد');
+      if(gameStarted && !gameOver) endGame(false, isPvp() ? 'اتصال حریف قطع شد' : 'اتصال دوستت قطع شد');
+      else document.getElementById('pvpQueueOverlay').style.display = 'none';
     } else if(msg.type === 'data'){
       netOnData(msg.payload);
     }
@@ -3548,13 +3824,44 @@ document.getElementById('lobbyShopBtn').addEventListener('click', ()=>{
 });
 document.getElementById('shopLobbyCloseBtn').addEventListener('click', showLobby);
 
+let NET_KIND = 'coop'; // 'coop' | 'pvp' — which flavor of code-based room the netOverlay is currently set up for
 document.getElementById('coopBtn').addEventListener('click', ()=>{
+  NET_KIND = 'coop';
+  document.getElementById('netOverlay').querySelector('h1').textContent = '🌐 بازی دو نفره';
   document.getElementById('startOverlay').style.display = 'none';
   document.getElementById('netOverlay').style.display = 'flex';
   document.getElementById('netChoice').style.display = 'block';
   document.getElementById('netJoinBox').style.display = 'none';
   document.getElementById('netStep2').style.display = 'none';
   netSetStatus('netStatus',''); netSetStatus('netStatus2','');
+});
+document.getElementById('pvpCodeBtn').addEventListener('click', ()=>{
+  NET_KIND = 'pvp';
+  document.getElementById('netOverlay').querySelector('h1').textContent = '⚔️ پی‌وی‌پی با کد';
+  document.getElementById('startOverlay').style.display = 'none';
+  document.getElementById('netOverlay').style.display = 'flex';
+  document.getElementById('netChoice').style.display = 'block';
+  document.getElementById('netJoinBox').style.display = 'none';
+  document.getElementById('netStep2').style.display = 'none';
+  netSetStatus('netStatus',''); netSetStatus('netStatus2','');
+});
+document.getElementById('pvpShansiBtn').addEventListener('click', ()=>{
+  document.getElementById('startOverlay').style.display = 'none';
+  document.getElementById('pvpQueueOverlay').style.display = 'flex';
+  netConnectSocket(
+    ()=>{ NET.ws.send(JSON.stringify({type:'pvpQueue'})); },
+    ()=>{
+      document.getElementById('pvpQueueOverlay').style.display = 'none';
+      document.getElementById('startOverlay').style.display = 'flex';
+      showKillFeedMsg('❌ اتصال به سرور ناموفق بود.');
+    }
+  );
+});
+document.getElementById('pvpQueueCancelBtn').addEventListener('click', ()=>{
+  if(NET.ws){ try{ NET.ws.send(JSON.stringify({type:'pvpQueueCancel'})); }catch(e){} }
+  netDisconnect();
+  document.getElementById('pvpQueueOverlay').style.display = 'none';
+  document.getElementById('startOverlay').style.display = 'flex';
 });
 document.getElementById('netCloseBtn').addEventListener('click', ()=>{
   netDisconnect();
@@ -3565,20 +3872,20 @@ document.getElementById('netJoinShowBtn').addEventListener('click', ()=>{
   document.getElementById('netJoinBox').style.display = 'block';
 });
 document.getElementById('netHostBtn').addEventListener('click', ()=>{
-  gameMode = 'coopHost';
+  gameMode = NET_KIND==='pvp' ? 'pvpHost' : 'coopHost';
   netSetStatus('netStatus','در حال ساخت اتاق...');
   netConnectSocket(
-    ()=>{ NET.ws.send(JSON.stringify({type:'host'})); },
+    ()=>{ NET.ws.send(JSON.stringify({type:'host', kind:NET_KIND})); },
     ()=>{ netSetStatus('netStatus','❌ اتصال به سرور ناموفق بود.'); }
   );
 });
 document.getElementById('netJoinBtn').addEventListener('click', ()=>{
   const code = document.getElementById('netCodeInput').value.trim();
   if(!code) return;
-  gameMode = 'coopClient';
+  gameMode = NET_KIND==='pvp' ? 'pvpClient' : 'coopClient';
   netSetStatus('netStatus','در حال اتصال...');
   netConnectSocket(
-    ()=>{ NET.ws.send(JSON.stringify({type:'join', code})); },
+    ()=>{ NET.ws.send(JSON.stringify({type:'join', code, kind:NET_KIND})); },
     ()=>{ netSetStatus('netStatus','❌ اتصال به سرور ناموفق بود.'); }
   );
 });
@@ -3909,11 +4216,13 @@ function startGame(){
   document.getElementById('startOverlay').style.display = 'none';
   document.getElementById('gameOverOverlay').style.display = 'none';
   document.getElementById('shopOverlay').style.display = 'none';
-  if(gameMode!=='coopClient') startWave(1);
+  // PvP has no AI waves — pvpBeginMatch() (called right after startGame()) handles spawning/rounds instead
+  if(gameMode!=='coopClient' && !isPvp()) startWave(1);
 }
 
-function endGame(won, customSub){
-  const wasCoop = gameMode!=='solo';
+function endGame(won, customSub, customTitle){
+  const wasCoop = (gameMode==='coopHost' || gameMode==='coopClient');
+  const wasPvp = isPvp();
   reviveOpen = false; stopReviveTimer();
   document.getElementById('soloReviveOverlay').style.display = 'none';
   gameOver = true;
@@ -3921,11 +4230,15 @@ function endGame(won, customSub){
   shopOpen = false;
   document.getElementById('shopOverlay').style.display = 'none';
   document.getElementById('coopWaitOverlay').style.display = 'none';
-  document.getElementById('goTitle').textContent = 'GAME OVER';
+  document.getElementById('goTitle').textContent = customTitle || 'GAME OVER';
   document.getElementById('goSub').textContent = customSub || 'تو کشته شدی';
+  document.getElementById('finalScoreWaveWrap').style.display = wasPvp ? 'none' : '';
+  document.getElementById('leaderboardBox').style.display = wasPvp ? 'none' : '';
   document.getElementById('finalScore').textContent = score;
   document.getElementById('finalWave').textContent = wave;
   document.getElementById('gameOverOverlay').style.display = 'flex';
+  pvpSetHudVisible(false);
+  pvpMatchActive = false; pvpRoundLocked = false;
   if(gameMode!=='solo'){ netDisconnect(); gameMode='solo'; }
   trackMissionEvent('gameplayed', 1);
   if(wasCoop && wave>=2) trackMissionEvent('coop', 1);
