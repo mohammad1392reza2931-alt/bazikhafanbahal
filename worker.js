@@ -1,6 +1,7 @@
 // worker.js — Strike Zone backend
-//   * Durable Object "Relay": 2-player co-op relay over WebSocket (host / join / data)
-//   * D1 API:  POST /api/login   POST /api/save   GET /api/leaderboard   POST /api/admin-grant (creator only)
+//   * Durable Object "Relay": 2-player co-op/PvP relay over WebSocket (host / join / data / pvpQueue)
+//   * D1 API:  POST /api/login   POST /api/save   GET /api/leaderboard   GET /api/check-ban
+//              POST /api/admin-grant (creator only)   POST /api/admin-ban (creator only)
 //   * Admin key: the ADMIN_KEY constant below (must match ADMIN_KEY in index-dev.html). If a Cloudflare secret named ADMIN_KEY exists it takes priority.
 //
 // The D1 database and the Durable Object namespace are found automatically among the
@@ -70,6 +71,7 @@ async function ensureSchema(DB) {
   // migrate a table created before password columns existed (errors if columns already exist -> ignored)
   try { await DB.prepare(`ALTER TABLE player_saves ADD COLUMN password_hash TEXT`).run(); } catch (e) {}
   try { await DB.prepare(`ALTER TABLE player_saves ADD COLUMN password_salt TEXT`).run(); } catch (e) {}
+  try { await DB.prepare(`ALTER TABLE player_saves ADD COLUMN banned INTEGER NOT NULL DEFAULT 0`).run(); } catch (e) {}
   schemaReady = true;
 }
 
@@ -159,6 +161,15 @@ async function handleLeaderboard(DB) {
   return jsonResponse({ leaderboard: safe });
 }
 
+// GET /api/check-ban?u=username  -> { banned: true|false }
+async function handleCheckBan(url, DB) {
+  const username = String(url.searchParams.get("u") || "").trim().slice(0, 20);
+  if (!username) return jsonResponse({ banned: false });
+  await ensureSchema(DB);
+  const row = await DB.prepare("SELECT banned FROM player_saves WHERE username = ?").bind(username).first();
+  return jsonResponse({ banned: !!(row && Number(row.banned) === 1) });
+}
+
 // ---------- admin (creator-only) tools ----------
 // Must match ADMIN_KEY in your private index-dev.html. Anyone who sees this file can use the endpoint, so keep the repo private
 // (or paste this file straight into Cloudflare without uploading it to a public GitHub repo).
@@ -189,6 +200,25 @@ async function handleAdminGrant(request, DB, env) {
   return jsonResponse({ ok: true, newDiamondTotal: saveData.diamonds });
 }
 
+// POST /api/admin-ban  { adminKey, username, banned }
+// A banned player can still log in and play solo, but is refused co-op/PvP relay access.
+async function handleAdminBan(request, DB, env) {
+  let body;
+  try { body = await request.json(); } catch (e) { return jsonResponse({ error: "invalid json" }, 400); }
+  const adminKey = String((env && env.ADMIN_KEY) || ADMIN_KEY);
+  if (!adminKey || String(body.adminKey || "") !== adminKey) return jsonResponse({ error: "forbidden" }, 403);
+  const username = String(body.username || "").trim().slice(0, 20);
+  if (!username) return jsonResponse({ error: "username required" }, 400);
+  const banned = body.banned ? 1 : 0;
+
+  await ensureSchema(DB);
+  const row = await DB.prepare("SELECT username FROM player_saves WHERE username = ?").bind(username).first();
+  if (!row) return jsonResponse({ error: "player-not-found" }, 404);
+
+  await DB.prepare(`UPDATE player_saves SET banned = ? WHERE username = ?`).bind(banned, username).run();
+  return jsonResponse({ ok: true, username, banned: !!banned });
+}
+
 const NO_DB = () => jsonResponse({ error: "D1 database binding not found in this Worker" }, 500);
 
 export default {
@@ -204,12 +234,25 @@ export default {
         if (url.pathname === "/api/save" && request.method === "POST") return DB ? await handleSave(request, DB) : NO_DB();
         if (url.pathname === "/api/login" && request.method === "POST") return DB ? await handleLogin(request, DB) : NO_DB();
         if (url.pathname === "/api/admin-grant" && request.method === "POST") return DB ? await handleAdminGrant(request, DB, env) : NO_DB();
+        if (url.pathname === "/api/admin-ban" && request.method === "POST") return DB ? await handleAdminBan(request, DB, env) : NO_DB();
+        if (url.pathname === "/api/check-ban" && request.method === "GET") return DB ? await handleCheckBan(url, DB) : NO_DB();
         if (url.pathname === "/api/leaderboard" && request.method === "GET") return DB ? await handleLeaderboard(DB) : NO_DB();
         return jsonResponse({ error: "not found" }, 404);
       }
 
-      // WebSocket connections from the game (co-op) go to the Relay Durable Object.
+      // WebSocket connections from the game (co-op / PvP) go to the Relay Durable Object.
+      // The client appends ?u=<username> to the socket URL so a banned account can be refused here,
+      // before it ever reaches the Durable Object.
       if (request.headers.get("Upgrade") === "websocket") {
+        const DB = getDB(env);
+        const uname = String(url.searchParams.get("u") || "").trim().slice(0, 20);
+        if (DB && uname) {
+          try {
+            await ensureSchema(DB);
+            const row = await DB.prepare("SELECT banned FROM player_saves WHERE username = ?").bind(uname).first();
+            if (row && Number(row.banned) === 1) return jsonResponse({ error: "banned" }, 403);
+          } catch (e) { /* if the ban lookup itself fails, don't block legitimate play */ }
+        }
         const ns = getRelayNamespace(env);
         if (!ns) return jsonResponse({ error: "Durable Object binding not found in this Worker" }, 500);
         const stub = ns.get(ns.idFromName("global-relay"));
